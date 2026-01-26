@@ -8,131 +8,308 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <header>
-        <h1>MetroMind</h1>
-        <p class="subtitle">Agentic AI for Smart Urban Transit</p>
-    </header>
-
-    <main>
-        <!-- Time Display -->
-        <section class="time-section">
-            <div class="clock-container">
-                <div class="clock-icon">&#128337;</div>
-                <div class="clock-display">
-                    <span class="clock-time" id="clock-time">12:00 AM</span>
-                    <span class="clock-period" id="clock-period">Night</span>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">🚇</span>
+                <h1>MetroMind</h1>
+            </div>
+            <p class="tagline">Multi-Agent Transit Intelligence for Singapore</p>
+            <div class="header-stats">
+                <div class="stat-pill liveability-pill">
+                    <span class="stat-label">Liveability</span>
+                    <span class="stat-value" id="header-liveability">--</span>
                 </div>
-                <div class="clock-day">
-                    Day <span id="day-count">1</span> &bull; Hour <span id="hour-count">0</span>
+                <div class="stat-pill environment-pill">
+                    <span class="stat-label">Environment</span>
+                    <span class="stat-value" id="header-environment">--</span>
                 </div>
             </div>
-        </section>
+        </header>
 
-        <!-- Controls -->
-        <section class="controls">
-            <button id="btn-step" onclick="step()">
-                <span class="btn-icon">&#9654;</span>
-                Next Hour
-            </button>
-            <button id="btn-run10" onclick="run10()">
-                <span class="btn-icon">&#9193;</span>
-                Skip 10 Hours
-            </button>
-            <button id="btn-reset" onclick="reset()">
-                <span class="btn-icon">&#8634;</span>
-                Start Over
-            </button>
-        </section>
+        <!-- Main Dashboard -->
+        <main class="dashboard">
+            <!-- Left Panel: Map -->
+            <section class="map-panel">
+                <div class="panel-header">
+                    <h2>Singapore Transit Map</h2>
+                    <div class="time-display">
+                        <span class="time-icon" id="time-icon">🌙</span>
+                        <span class="time-text" id="clock-time">12:00 AM</span>
+                        <span class="time-period" id="clock-period">Night</span>
+                    </div>
+                </div>
 
-        <!-- Scores -->
-        <section class="scores">
-            <div class="score-card liveability">
-                <h3>Liveability</h3>
-                <div class="score-value" id="liveability-score">--</div>
-                <div class="score-bar">
-                    <div class="score-fill" id="liveability-bar"></div>
-                </div>
-            </div>
-            <div class="score-card environment">
-                <h3>Environment</h3>
-                <div class="score-value" id="environment-score">--</div>
-                <div class="score-bar">
-                    <div class="score-fill" id="environment-bar"></div>
-                </div>
-            </div>
-        </section>
+                <!-- Singapore Map SVG -->
+                <div class="map-container">
+                    <svg viewBox="0 0 400 300" class="singapore-map" id="sg-map">
+                        <!-- Background -->
+                        <defs>
+                            <linearGradient id="water-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#1a365d;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#2c5282;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="glow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
 
-        <!-- Metrics Summary -->
-        <section class="metrics-summary">
-            <h2>City Metrics</h2>
-            <div class="metrics-grid" id="metrics-grid">
-                <div class="metric">
-                    <span class="metric-label">Avg Station Crowding</span>
-                    <span class="metric-value" id="metric-station">--</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">Avg Bus Load</span>
-                    <span class="metric-value" id="metric-bus">--</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">Avg MRT Load</span>
-                    <span class="metric-value" id="metric-mrt">--</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">Avg Traffic</span>
-                    <span class="metric-value" id="metric-traffic">--</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">Avg Air Quality</span>
-                    <span class="metric-value" id="metric-air">--</span>
-                </div>
-            </div>
-        </section>
+                        <!-- Water background -->
+                        <rect width="400" height="300" fill="url(#water-gradient)"/>
 
-        <!-- District Table -->
-        <section class="districts">
-            <h2>Districts</h2>
-            <table id="district-table">
-                <thead>
-                    <tr>
-                        <th>District</th>
-                        <th>Population</th>
-                        <th>Bus Cap</th>
-                        <th>Bus Load</th>
-                        <th>MRT Cap</th>
-                        <th>MRT Load</th>
-                        <th>Crowding</th>
-                        <th>Traffic</th>
-                        <th>Air Quality</th>
-                        <th>Nudges</th>
-                    </tr>
-                </thead>
-                <tbody id="district-tbody">
-                    <!-- Dynamic content -->
-                </tbody>
-            </table>
-        </section>
+                        <!-- North District -->
+                        <g class="district" id="district-north" data-district="North">
+                            <path d="M120,40 L280,40 L300,80 L260,100 L140,100 L100,80 Z"
+                                  class="district-shape" fill="#2d3748"/>
+                            <text x="200" y="70" class="district-label">NORTH</text>
+                            <text x="200" y="90" class="district-stats" id="north-stats">--</text>
+                            <g class="district-icons" id="north-icons"></g>
+                        </g>
 
-        <!-- Charts -->
-        <section class="charts">
-            <h2>Score History</h2>
-            <div class="chart-container">
-                <canvas id="score-chart"></canvas>
-            </div>
-        </section>
+                        <!-- West District -->
+                        <g class="district" id="district-west" data-district="West">
+                            <path d="M40,100 L140,100 L150,160 L130,200 L50,180 L30,140 Z"
+                                  class="district-shape" fill="#2d3748"/>
+                            <text x="90" y="145" class="district-label">WEST</text>
+                            <text x="90" y="165" class="district-stats" id="west-stats">--</text>
+                            <g class="district-icons" id="west-icons"></g>
+                        </g>
 
-        <!-- Action Feed -->
-        <section class="action-feed">
-            <h2>Action Feed</h2>
-            <div id="action-list" class="action-list">
-                <!-- Dynamic content -->
-            </div>
-        </section>
-    </main>
+                        <!-- Central District -->
+                        <g class="district" id="district-central" data-district="Central">
+                            <path d="M140,100 L260,100 L270,160 L250,200 L150,200 L130,160 Z"
+                                  class="district-shape central" fill="#2d3748"/>
+                            <text x="200" y="140" class="district-label">CENTRAL</text>
+                            <text x="200" y="160" class="district-stats" id="central-stats">--</text>
+                            <!-- CBD marker -->
+                            <circle cx="200" cy="175" r="8" class="cbd-marker"/>
+                            <text x="200" y="178" class="cbd-text">CBD</text>
+                            <g class="district-icons" id="central-icons"></g>
+                        </g>
 
-    <footer>
-        <p>MetroMind | Multi-Agent Transit Orchestration for Singapore</p>
-    </footer>
+                        <!-- East District -->
+                        <g class="district" id="district-east" data-district="East">
+                            <path d="M260,100 L360,120 L370,180 L340,220 L270,200 L260,160 Z"
+                                  class="district-shape" fill="#2d3748"/>
+                            <text x="310" y="155" class="district-label">EAST</text>
+                            <text x="310" y="175" class="district-stats" id="east-stats">--</text>
+                            <!-- Changi marker -->
+                            <text x="350" y="200" class="poi-marker">✈️</text>
+                            <g class="district-icons" id="east-icons"></g>
+                        </g>
+
+                        <!-- South District -->
+                        <g class="district" id="district-south" data-district="South">
+                            <path d="M130,200 L250,200 L270,240 L230,270 L150,270 L110,240 Z"
+                                  class="district-shape" fill="#2d3748"/>
+                            <text x="190" y="235" class="district-label">SOUTH</text>
+                            <text x="190" y="255" class="district-stats" id="south-stats">--</text>
+                            <!-- Sentosa marker -->
+                            <text x="170" y="285" class="poi-marker">🏝️</text>
+                            <g class="district-icons" id="south-icons"></g>
+                        </g>
+
+                        <!-- MRT Lines (decorative) -->
+                        <g class="mrt-lines">
+                            <line x1="200" y1="70" x2="200" y2="175" class="mrt-line ns-line"/>
+                            <line x1="90" y1="145" x2="310" y2="155" class="mrt-line ew-line"/>
+                        </g>
+
+                        <!-- Animation layer for +1 indicators -->
+                        <g id="animation-layer"></g>
+                    </svg>
+
+                    <!-- Map Legend -->
+                    <div class="map-legend">
+                        <div class="legend-item">
+                            <span class="legend-color good"></span>
+                            <span>Low Load</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color moderate"></span>
+                            <span>Moderate</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color busy"></span>
+                            <span>Busy</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color critical"></span>
+                            <span>Critical</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Day Counter -->
+                <div class="day-counter">
+                    <span class="day-label">Day</span>
+                    <span class="day-value" id="day-count">1</span>
+                    <span class="hour-label">Hour</span>
+                    <span class="hour-value" id="hour-count">0</span>
+                </div>
+            </section>
+
+            <!-- Center Panel: Controls & Metrics -->
+            <section class="control-panel">
+                <div class="controls">
+                    <button id="btn-step" onclick="step()" class="btn btn-primary">
+                        <span class="btn-icon">▶</span>
+                        <span class="btn-text">Next Hour</span>
+                    </button>
+                    <button id="btn-run10" onclick="run10()" class="btn btn-secondary">
+                        <span class="btn-icon">⏩</span>
+                        <span class="btn-text">Skip 10h</span>
+                    </button>
+                    <button id="btn-reset" onclick="reset()" class="btn btn-danger">
+                        <span class="btn-icon">↺</span>
+                        <span class="btn-text">Reset</span>
+                    </button>
+                </div>
+
+                <!-- Budget Display -->
+                <div class="budget-display">
+                    <h3>Available Resources</h3>
+                    <div class="budget-bars">
+                        <div class="budget-item">
+                            <span class="budget-icon">🚌</span>
+                            <span class="budget-label">Buses</span>
+                            <div class="budget-bar">
+                                <div class="budget-fill bus-fill" id="bus-budget-bar"></div>
+                            </div>
+                            <span class="budget-value" id="bus-budget-value">40/40</span>
+                        </div>
+                        <div class="budget-item">
+                            <span class="budget-icon">🚇</span>
+                            <span class="budget-label">Trains</span>
+                            <div class="budget-bar">
+                                <div class="budget-fill mrt-fill" id="mrt-budget-bar"></div>
+                            </div>
+                            <span class="budget-value" id="mrt-budget-value">12/12</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Key Metrics -->
+                <div class="metrics-compact">
+                    <h3>City Vitals</h3>
+                    <div class="metric-row">
+                        <div class="metric-item">
+                            <span class="metric-icon">🚉</span>
+                            <span class="metric-label">Station Crowding</span>
+                            <span class="metric-value" id="metric-station">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-icon">🚌</span>
+                            <span class="metric-label">Bus Load</span>
+                            <span class="metric-value" id="metric-bus">--</span>
+                        </div>
+                    </div>
+                    <div class="metric-row">
+                        <div class="metric-item">
+                            <span class="metric-icon">🚇</span>
+                            <span class="metric-label">MRT Load</span>
+                            <span class="metric-value" id="metric-mrt">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-icon">🚗</span>
+                            <span class="metric-label">Traffic</span>
+                            <span class="metric-value" id="metric-traffic">--</span>
+                        </div>
+                    </div>
+                    <div class="metric-row single">
+                        <div class="metric-item">
+                            <span class="metric-icon">🌿</span>
+                            <span class="metric-label">Air Quality</span>
+                            <span class="metric-value" id="metric-air">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Score History Chart -->
+                <div class="chart-section">
+                    <h3>Performance Trend</h3>
+                    <div class="chart-container">
+                        <canvas id="score-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Agents & Actions -->
+            <section class="agent-panel">
+                <!-- Agent Status -->
+                <div class="agent-status">
+                    <h2>🤖 Agent Orchestra</h2>
+                    <div class="agents-grid">
+                        <div class="agent-card" id="agent-monitor">
+                            <div class="agent-icon">👁️</div>
+                            <div class="agent-info">
+                                <span class="agent-name">Monitor</span>
+                                <span class="agent-state" id="monitor-state">Idle</span>
+                            </div>
+                            <div class="agent-indicator"></div>
+                        </div>
+                        <div class="agent-card" id="agent-planner">
+                            <div class="agent-icon">📋</div>
+                            <div class="agent-info">
+                                <span class="agent-name">Planner</span>
+                                <span class="agent-state" id="planner-state">Idle</span>
+                            </div>
+                            <div class="agent-indicator"></div>
+                        </div>
+                        <div class="agent-card" id="agent-policy">
+                            <div class="agent-icon">⚖️</div>
+                            <div class="agent-info">
+                                <span class="agent-name">Policy</span>
+                                <span class="agent-state" id="policy-state">Idle</span>
+                            </div>
+                            <div class="agent-indicator"></div>
+                        </div>
+                        <div class="agent-card" id="agent-coordinator">
+                            <div class="agent-icon">🎯</div>
+                            <div class="agent-info">
+                                <span class="agent-name">Coordinator</span>
+                                <span class="agent-state" id="coordinator-state">Idle</span>
+                            </div>
+                            <div class="agent-indicator"></div>
+                        </div>
+                        <div class="agent-card" id="agent-executor">
+                            <div class="agent-icon">⚡</div>
+                            <div class="agent-info">
+                                <span class="agent-name">Executor</span>
+                                <span class="agent-state" id="executor-state">Idle</span>
+                            </div>
+                            <div class="agent-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Feed -->
+                <div class="action-feed">
+                    <h2>📡 Live Interventions</h2>
+                    <div id="action-list" class="action-list">
+                        <div class="action-placeholder">
+                            <span class="placeholder-icon">🚀</span>
+                            <span>Run simulation to see agent decisions</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <span>MetroMind</span>
+            <span class="separator">•</span>
+            <span>Multi-Agent Transit AI</span>
+            <span class="separator">•</span>
+            <span>Singapore 2024</span>
+        </footer>
+    </div>
 
     <script src="app.js"></script>
 </body>

@@ -1,9 +1,18 @@
-// UrbanPulse Frontend Application
+// MetroMind - Smart Transit AI Dashboard
 
 const API_BASE = 'http://127.0.0.1:8000';
 
 // Chart instance
 let scoreChart = null;
+
+// District center coordinates for animations
+const districtCenters = {
+    'Central': { x: 200, y: 150 },
+    'North': { x: 200, y: 70 },
+    'South': { x: 190, y: 245 },
+    'East': { x: 310, y: 160 },
+    'West': { x: 90, y: 150 }
+};
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -26,46 +35,40 @@ function initChart() {
                     backgroundColor: 'rgba(79, 209, 197, 0.1)',
                     tension: 0.3,
                     fill: true,
+                    pointRadius: 0,
                 },
                 {
                     label: 'Environment',
                     data: [],
-                    borderColor: '#68d391',
-                    backgroundColor: 'rgba(104, 211, 145, 0.1)',
+                    borderColor: '#48bb78',
+                    backgroundColor: 'rgba(72, 187, 120, 0.1)',
                     tension: 0.3,
                     fill: true,
+                    pointRadius: 0,
                 },
             ],
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index',
+            },
             scales: {
                 y: {
                     min: 0,
                     max: 100,
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)',
-                    },
-                    ticks: {
-                        color: '#a0aec0',
-                    },
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#718096', font: { size: 10 } },
                 },
                 x: {
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)',
-                    },
-                    ticks: {
-                        color: '#a0aec0',
-                    },
+                    grid: { display: false },
+                    ticks: { color: '#718096', font: { size: 10 }, maxTicksLimit: 10 },
                 },
             },
             plugins: {
-                legend: {
-                    labels: {
-                        color: '#e8e8e8',
-                    },
-                },
+                legend: { display: false },
             },
         },
     });
@@ -83,17 +86,26 @@ async function fetchState() {
     }
 }
 
-// Step simulation
+// Step simulation with agent animations
 async function step() {
     try {
         disableButtons();
+        await animateAgents();
+
         const response = await fetch(`${API_BASE}/api/step`, { method: 'POST' });
         const data = await response.json();
+
+        // Animate interventions on map
+        if (data.actions && data.actions.length > 0) {
+            animateInterventions(data.actions);
+        }
+
         updateUI(data);
     } catch (error) {
         console.error('Error stepping:', error);
         showError('Failed to step simulation');
     } finally {
+        resetAgents();
         enableButtons();
     }
 }
@@ -102,6 +114,8 @@ async function step() {
 async function run10() {
     try {
         disableButtons();
+        await animateAgents();
+
         const response = await fetch(`${API_BASE}/api/run?n=10`, { method: 'POST' });
         const data = await response.json();
         updateUI(data);
@@ -109,6 +123,7 @@ async function run10() {
         console.error('Error running steps:', error);
         showError('Failed to run simulation');
     } finally {
+        resetAgents();
         enableButtons();
     }
 }
@@ -127,7 +142,12 @@ async function reset() {
         scoreChart.update();
 
         // Clear action feed
-        document.getElementById('action-list').innerHTML = '';
+        document.getElementById('action-list').innerHTML = `
+            <div class="action-placeholder">
+                <span class="placeholder-icon">🚀</span>
+                <span>Run simulation to see agent decisions</span>
+            </div>
+        `;
 
         updateUI(data);
     } catch (error) {
@@ -136,6 +156,107 @@ async function reset() {
     } finally {
         enableButtons();
     }
+}
+
+// Animate agents during processing
+async function animateAgents() {
+    const agents = ['monitor', 'planner', 'policy', 'coordinator', 'executor'];
+    const states = [
+        'Observing city...',
+        'Proposing actions...',
+        'Validating rules...',
+        'Allocating resources...',
+        'Executing...'
+    ];
+
+    for (let i = 0; i < agents.length; i++) {
+        const card = document.getElementById(`agent-${agents[i]}`);
+        const stateEl = document.getElementById(`${agents[i]}-state`);
+
+        // Activate current agent
+        card.classList.add('active');
+        stateEl.textContent = states[i];
+
+        await sleep(150);
+
+        // Deactivate after a moment
+        if (i > 0) {
+            const prevCard = document.getElementById(`agent-${agents[i-1]}`);
+            prevCard.classList.remove('active');
+            document.getElementById(`${agents[i-1]}-state`).textContent = 'Done';
+        }
+    }
+}
+
+// Reset agent states
+function resetAgents() {
+    const agents = ['monitor', 'planner', 'policy', 'coordinator', 'executor'];
+    agents.forEach(agent => {
+        const card = document.getElementById(`agent-${agent}`);
+        card.classList.remove('active');
+        document.getElementById(`${agent}-state`).textContent = 'Idle';
+    });
+}
+
+// Animate interventions on the map
+function animateInterventions(actions) {
+    const animLayer = document.getElementById('animation-layer');
+
+    actions.forEach((action, index) => {
+        const center = districtCenters[action.district];
+        if (!center) return;
+
+        // Parse actions and create floating +1 texts
+        action.actions.forEach((act, actIndex) => {
+            setTimeout(() => {
+                let text = '';
+                let className = 'intervention-text';
+
+                if (act.includes('BUS') || act.includes('BUSES')) {
+                    const match = act.match(/\+(\d+)/);
+                    text = match ? `🚌 +${match[1]}` : '🚌 +1';
+                    className += ' bus';
+                } else if (act.includes('TRAIN')) {
+                    const match = act.match(/\+(\d+)/);
+                    text = match ? `🚇 +${match[1]}` : '🚇 +1';
+                    className += ' train';
+                } else if (act.includes('CROWD')) {
+                    text = '👥 Managed';
+                    className += ' crowd';
+                } else if (act.includes('PRIORITY')) {
+                    text = '🚌 Priority';
+                    className += ' bus';
+                } else if (act.includes('NUDGE')) {
+                    text = '📱 Nudge';
+                }
+
+                if (text) {
+                    createFloatingText(animLayer, center.x, center.y - 10 - actIndex * 15, text, className);
+
+                    // Pulse the district
+                    const districtEl = document.getElementById(`district-${action.district.toLowerCase()}`);
+                    if (districtEl) {
+                        const shape = districtEl.querySelector('.district-shape');
+                        shape.classList.add('district-pulse');
+                        setTimeout(() => shape.classList.remove('district-pulse'), 500);
+                    }
+                }
+            }, index * 200 + actIndex * 100);
+        });
+    });
+}
+
+// Create floating text animation
+function createFloatingText(container, x, y, text, className) {
+    const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    textEl.setAttribute('x', x);
+    textEl.setAttribute('y', y);
+    textEl.setAttribute('class', `${className} float-animation`);
+    textEl.textContent = text;
+    container.appendChild(textEl);
+
+    // Remove after animation
+    setTimeout(() => textEl.remove(), 1500);
 }
 
 // Update UI with data
@@ -150,35 +271,48 @@ function updateUI(data) {
     const ampm = hour < 12 ? 'AM' : 'PM';
     document.getElementById('clock-time').textContent = `${hour12}:00 ${ampm}`;
 
-    // Set period of day
+    // Set period of day with icon
     let period = 'Night';
-    if (hour >= 6 && hour < 12) period = 'Morning';
-    else if (hour >= 12 && hour < 17) period = 'Afternoon';
-    else if (hour >= 17 && hour < 21) period = 'Evening';
-    document.getElementById('clock-period').textContent = period;
+    let icon = '🌙';
+    if (hour >= 5 && hour < 7) { period = 'Dawn'; icon = '🌅'; }
+    else if (hour >= 7 && hour < 12) { period = 'Morning'; icon = '☀️'; }
+    else if (hour >= 12 && hour < 17) { period = 'Afternoon'; icon = '🌤️'; }
+    else if (hour >= 17 && hour < 20) { period = 'Evening'; icon = '🌆'; }
+    else if (hour >= 20 && hour < 22) { period = 'Dusk'; icon = '🌇'; }
 
-    // Update day and hour counts
+    document.getElementById('clock-period').textContent = period;
+    document.getElementById('time-icon').textContent = icon;
     document.getElementById('day-count').textContent = day;
     document.getElementById('hour-count').textContent = t;
 
-    // Update scores
+    // Update header scores
     const liveability = data.scores.liveability_score;
     const environment = data.scores.environment_score;
+    document.getElementById('header-liveability').textContent = liveability.toFixed(1);
+    document.getElementById('header-environment').textContent = environment.toFixed(1);
 
-    document.getElementById('liveability-score').textContent = liveability.toFixed(1);
-    document.getElementById('environment-score').textContent = environment.toFixed(1);
-    document.getElementById('liveability-bar').style.width = `${liveability}%`;
-    document.getElementById('environment-bar').style.width = `${environment}%`;
+    // Update budgets
+    if (data.budgets) {
+        const busRemaining = data.budgets.bus_remaining;
+        const mrtRemaining = data.budgets.mrt_remaining;
+        document.getElementById('bus-budget-bar').style.width = `${(busRemaining / 40) * 100}%`;
+        document.getElementById('mrt-budget-bar').style.width = `${(mrtRemaining / 12) * 100}%`;
+        document.getElementById('bus-budget-value').textContent = `${busRemaining}/40`;
+        document.getElementById('mrt-budget-value').textContent = `${mrtRemaining}/12`;
+    }
 
-    // Update metrics
-    document.getElementById('metric-station').textContent = formatPercent(data.metrics.avg_station);
-    document.getElementById('metric-bus').textContent = formatPercent(data.metrics.avg_bus_load);
-    document.getElementById('metric-mrt').textContent = formatPercent(data.metrics.avg_mrt_load);
-    document.getElementById('metric-traffic').textContent = formatPercent(data.metrics.avg_traffic);
-    document.getElementById('metric-air').textContent = data.metrics.avg_air.toFixed(1);
+    // Update metrics with color coding
+    updateMetric('metric-station', data.metrics.avg_station, 0.5, 0.7);
+    updateMetric('metric-bus', data.metrics.avg_bus_load, 0.7, 0.85);
+    updateMetric('metric-mrt', data.metrics.avg_mrt_load, 0.65, 0.8);
+    updateMetric('metric-traffic', data.metrics.avg_traffic, 0.5, 0.7);
 
-    // Update district table
-    updateDistrictTable(data.districts);
+    const airEl = document.getElementById('metric-air');
+    airEl.textContent = data.metrics.avg_air.toFixed(1);
+    airEl.className = 'metric-value ' + getAirClass(data.metrics.avg_air);
+
+    // Update map districts
+    updateMapDistricts(data.districts);
 
     // Update chart with history
     updateChart(data.history_tail);
@@ -189,26 +323,58 @@ function updateUI(data) {
     }
 }
 
-// Update district table
-function updateDistrictTable(districts) {
-    const tbody = document.getElementById('district-tbody');
-    tbody.innerHTML = '';
+// Update a metric with color coding
+function updateMetric(id, value, warnThreshold, critThreshold) {
+    const el = document.getElementById(id);
+    el.textContent = formatPercent(value);
 
+    if (value > critThreshold) {
+        el.className = 'metric-value critical';
+    } else if (value > warnThreshold) {
+        el.className = 'metric-value busy';
+    } else if (value > warnThreshold * 0.7) {
+        el.className = 'metric-value moderate';
+    } else {
+        el.className = 'metric-value good';
+    }
+}
+
+// Get air quality class
+function getAirClass(value) {
+    if (value >= 80) return 'good';
+    if (value >= 60) return 'moderate';
+    if (value >= 40) return 'busy';
+    return 'critical';
+}
+
+// Update map district colors and stats
+function updateMapDistricts(districts) {
     for (const [name, d] of Object.entries(districts)) {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><strong>${name}</strong></td>
-            <td>${d.population.toLocaleString()}</td>
-            <td>${d.bus_capacity}</td>
-            <td class="${getStatusClass(d.bus_load_factor, 0.85)}">${formatPercent(d.bus_load_factor)}</td>
-            <td>${d.mrt_capacity}</td>
-            <td class="${getStatusClass(d.mrt_load_factor, 0.80)}">${formatPercent(d.mrt_load_factor)}</td>
-            <td class="${getStatusClass(d.station_crowding, 0.9)}">${formatPercent(d.station_crowding)}</td>
-            <td class="${getStatusClass(d.road_traffic, 0.8)}">${formatPercent(d.road_traffic)}</td>
-            <td>${d.air_quality.toFixed(1)}</td>
-            <td>${d.nudges_active ? '<span class="nudge-active">ACTIVE</span>' : '<span class="nudge-inactive">-</span>'}</td>
-        `;
-        tbody.appendChild(row);
+        const districtEl = document.getElementById(`district-${name.toLowerCase()}`);
+        if (!districtEl) continue;
+
+        const shape = districtEl.querySelector('.district-shape');
+        const statsEl = document.getElementById(`${name.toLowerCase()}-stats`);
+
+        // Calculate average load for color
+        const avgLoad = (d.bus_load_factor + d.mrt_load_factor + d.station_crowding) / 3;
+
+        // Remove old classes
+        shape.classList.remove('load-low', 'load-moderate', 'load-busy', 'load-critical');
+
+        // Add new class based on load
+        if (avgLoad > 0.8) {
+            shape.classList.add('load-critical');
+        } else if (avgLoad > 0.6) {
+            shape.classList.add('load-busy');
+        } else if (avgLoad > 0.35) {
+            shape.classList.add('load-moderate');
+        } else {
+            shape.classList.add('load-low');
+        }
+
+        // Update stats text
+        statsEl.textContent = `${formatPercent(avgLoad)} load`;
     }
 }
 
@@ -216,37 +382,56 @@ function updateDistrictTable(districts) {
 function updateChart(history) {
     if (!history || history.length === 0) return;
 
-    const labels = history.map(h => h.t);
+    const labels = history.map(h => `H${h.t}`);
     const liveabilityData = history.map(h => h.scores.liveability_score);
     const environmentData = history.map(h => h.scores.environment_score);
 
     scoreChart.data.labels = labels;
     scoreChart.data.datasets[0].data = liveabilityData;
     scoreChart.data.datasets[1].data = environmentData;
-    scoreChart.update();
+    scoreChart.update('none');
 }
 
 // Add actions to feed
 function addActions(actions) {
     const list = document.getElementById('action-list');
 
+    // Remove placeholder if present
+    const placeholder = list.querySelector('.action-placeholder');
+    if (placeholder) placeholder.remove();
+
     for (const action of actions) {
         const item = document.createElement('div');
         item.className = 'action-item';
 
-        const tags = action.actions.map(a => `<span class="action-tag">${a}</span>`).join('');
+        // Determine urgency class
+        let urgencyClass = 'low';
+        if (action.urgency >= 3) urgencyClass = 'high';
+        else if (action.urgency >= 1.5) urgencyClass = 'medium';
+
+        // Create action tags with proper classes
+        const tags = action.actions.map(a => {
+            let tagClass = 'action-tag';
+            if (a.includes('BUS') || a.includes('PRIORITY')) tagClass += ' bus';
+            else if (a.includes('TRAIN')) tagClass += ' train';
+            else if (a.includes('CROWD')) tagClass += ' crowd';
+            return `<span class="${tagClass}">${a}</span>`;
+        }).join('');
 
         item.innerHTML = `
-            <div class="action-time">Step ${action.t} | Urgency: ${action.urgency}</div>
+            <div class="action-header">
+                <span class="action-time">Hour ${action.t}</span>
+                <span class="action-urgency ${urgencyClass}">Urgency: ${action.urgency.toFixed(1)}</span>
+            </div>
             <div class="action-district">${action.district}</div>
-            <div class="action-details">${tags}</div>
+            <div class="action-tags">${tags}</div>
         `;
 
         list.insertBefore(item, list.firstChild);
     }
 
-    // Keep only last 20 items
-    while (list.children.length > 20) {
+    // Keep only last 15 items
+    while (list.children.length > 15) {
         list.removeChild(list.lastChild);
     }
 }
@@ -256,10 +441,8 @@ function formatPercent(value) {
     return (value * 100).toFixed(1) + '%';
 }
 
-function getStatusClass(value, threshold) {
-    if (value > threshold + 0.1) return 'status-critical';
-    if (value > threshold) return 'status-warning';
-    return 'status-good';
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function disableButtons() {
@@ -275,14 +458,16 @@ function enableButtons() {
 }
 
 function showError(message) {
-    // Simple error display - could be improved with toast notifications
     const list = document.getElementById('action-list');
     const item = document.createElement('div');
     item.className = 'action-item';
-    item.style.borderLeftColor = '#f56565';
+    item.style.borderLeftColor = '#fc8181';
     item.innerHTML = `
-        <div class="action-time" style="color: #f56565;">Error</div>
-        <div class="action-details">${message}</div>
+        <div class="action-header">
+            <span class="action-time" style="color: #fc8181;">Error</span>
+        </div>
+        <div class="action-district" style="color: #fc8181;">Connection Failed</div>
+        <div class="action-tags">${message}</div>
     `;
     list.insertBefore(item, list.firstChild);
 }
