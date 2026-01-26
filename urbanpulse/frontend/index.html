@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetroMind - Smart Transit AI</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <h1>MetroMind</h1>
+        <p class="subtitle">Agentic AI for Smart Urban Transit</p>
+    </header>
+
+    <main>
+        <!-- Time Display -->
+        <section class="time-section">
+            <div class="clock-container">
+                <div class="clock-icon">&#128337;</div>
+                <div class="clock-display">
+                    <span class="clock-time" id="clock-time">12:00 AM</span>
+                    <span class="clock-period" id="clock-period">Night</span>
+                </div>
+                <div class="clock-day">
+                    Day <span id="day-count">1</span> &bull; Hour <span id="hour-count">0</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Controls -->
+        <section class="controls">
+            <button id="btn-step" onclick="step()">
+                <span class="btn-icon">&#9654;</span>
+                Next Hour
+            </button>
+            <button id="btn-run10" onclick="run10()">
+                <span class="btn-icon">&#9193;</span>
+                Skip 10 Hours
+            </button>
+            <button id="btn-reset" onclick="reset()">
+                <span class="btn-icon">&#8634;</span>
+                Start Over
+            </button>
+        </section>
+
+        <!-- Scores -->
+        <section class="scores">
+            <div class="score-card liveability">
+                <h3>Liveability</h3>
+                <div class="score-value" id="liveability-score">--</div>
+                <div class="score-bar">
+                    <div class="score-fill" id="liveability-bar"></div>
+                </div>
+            </div>
+            <div class="score-card environment">
+                <h3>Environment</h3>
+                <div class="score-value" id="environment-score">--</div>
+                <div class="score-bar">
+                    <div class="score-fill" id="environment-bar"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Metrics Summary -->
+        <section class="metrics-summary">
+            <h2>City Metrics</h2>
+            <div class="metrics-grid" id="metrics-grid">
+                <div class="metric">
+                    <span class="metric-label">Avg Station Crowding</span>
+                    <span class="metric-value" id="metric-station">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Avg Bus Load</span>
+                    <span class="metric-value" id="metric-bus">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Avg MRT Load</span>
+                    <span class="metric-value" id="metric-mrt">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Avg Traffic</span>
+                    <span class="metric-value" id="metric-traffic">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Avg Air Quality</span>
+                    <span class="metric-value" id="metric-air">--</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- District Table -->
+        <section class="districts">
+            <h2>Districts</h2>
+            <table id="district-table">
+                <thead>
+                    <tr>
+                        <th>District</th>
+                        <th>Population</th>
+                        <th>Bus Cap</th>
+                        <th>Bus Load</th>
+                        <th>MRT Cap</th>
+                        <th>MRT Load</th>
+                        <th>Crowding</th>
+                        <th>Traffic</th>
+                        <th>Air Quality</th>
+                        <th>Nudges</th>
+                    </tr>
+                </thead>
+                <tbody id="district-tbody">
+                    <!-- Dynamic content -->
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Charts -->
+        <section class="charts">
+            <h2>Score History</h2>
+            <div class="chart-container">
+                <canvas id="score-chart"></canvas>
+            </div>
+        </section>
+
+        <!-- Action Feed -->
+        <section class="action-feed">
+            <h2>Action Feed</h2>
+            <div id="action-list" class="action-list">
+                <!-- Dynamic content -->
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>MetroMind | Multi-Agent Transit Orchestration for Singapore</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
