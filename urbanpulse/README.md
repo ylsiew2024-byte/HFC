@@ -178,3 +178,6 @@ This system demonstrates the 6 key properties of agentic AI:
 | **Constraints/Safety** | Budget limits, max change rates, policy rules enforced |
 
 The key insight: this isn't just reactive rules. The **CoordinatorAgent** makes genuine trade-offs when resources are scarce, prioritizing by urgency scores. Districts that don't receive resources in one step may get higher priority in the next (starvation prevention).
+
+
+#my push
