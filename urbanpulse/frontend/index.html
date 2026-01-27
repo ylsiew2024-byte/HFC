@@ -41,9 +41,9 @@
                     </div>
                 </div>
 
-                <!-- Singapore Map SVG -->
+                <!-- Singapore Map SVG - Realistic Shape -->
                 <div class="map-container">
-                    <svg viewBox="0 0 400 300" class="singapore-map" id="sg-map">
+                    <svg viewBox="0 0 450 280" class="singapore-map" id="sg-map">
                         <!-- Background -->
                         <defs>
                             <linearGradient id="water-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -57,67 +57,101 @@
                                     <feMergeNode in="SourceGraphic"/>
                                 </feMerge>
                             </filter>
+                            <!-- Drop shadow for island -->
+                            <filter id="island-shadow" x="-10%" y="-10%" width="120%" height="120%">
+                                <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.5"/>
+                            </filter>
                         </defs>
 
                         <!-- Water background -->
-                        <rect width="400" height="300" fill="url(#water-gradient)"/>
+                        <rect width="450" height="280" fill="url(#water-gradient)"/>
 
-                        <!-- North District -->
+                        <!-- Malaysia (Johor) hint at top -->
+                        <path d="M20,0 L430,0 L430,35 Q350,45 280,40 Q200,35 120,42 Q60,48 20,35 Z"
+                              fill="#1e3a5f" opacity="0.5"/>
+                        <text x="225" y="20" fill="#4a5568" font-size="9" text-anchor="middle">JOHOR, MALAYSIA</text>
+
+                        <!-- Straits of Johor -->
+                        <path d="M20,35 Q120,45 200,40 Q300,35 430,45 L430,55 Q300,50 200,55 Q100,60 20,50 Z"
+                              fill="#1a4971" opacity="0.6"/>
+
+                        <!-- North Region - Woodlands/Sembawang/Yishun -->
                         <g class="district" id="district-north" data-district="North">
-                            <path d="M120,40 L280,40 L300,80 L260,100 L140,100 L100,80 Z"
-                                  class="district-shape" fill="#2d3748"/>
-                            <text x="200" y="70" class="district-label">NORTH</text>
-                            <text x="200" y="90" class="district-stats" id="north-stats">--</text>
+                            <path d="M100,55 Q150,50 200,52 Q260,50 320,55 L340,75 Q320,90 280,95 L250,100 Q200,98 150,100 L120,95 Q90,85 80,70 Z"
+                                  class="district-shape" fill="#2d3748" filter="url(#island-shadow)"/>
+                            <text x="200" y="72" class="district-label">NORTH</text>
+                            <text x="200" y="85" class="district-stats" id="north-stats">--</text>
+                            <!-- Woodlands Checkpoint marker -->
+                            <circle cx="180" cy="58" r="4" fill="#f6e05e" opacity="0.8"/>
+                            <text x="180" y="61" font-size="5" fill="#1a202c" text-anchor="middle" font-weight="bold">WL</text>
                             <g class="district-icons" id="north-icons"></g>
                         </g>
 
-                        <!-- West District -->
+                        <!-- West Region - Jurong/Tuas -->
                         <g class="district" id="district-west" data-district="West">
-                            <path d="M40,100 L140,100 L150,160 L130,200 L50,180 L30,140 Z"
-                                  class="district-shape" fill="#2d3748"/>
-                            <text x="90" y="145" class="district-label">WEST</text>
-                            <text x="90" y="165" class="district-stats" id="west-stats">--</text>
+                            <path d="M25,100 L80,70 L120,95 L150,100 L155,135 Q145,165 120,180 L80,195 Q45,185 30,165 L20,140 Q15,120 25,100 Z"
+                                  class="district-shape" fill="#2d3748" filter="url(#island-shadow)"/>
+                            <text x="85" y="135" class="district-label">WEST</text>
+                            <text x="85" y="150" class="district-stats" id="west-stats">--</text>
+                            <!-- Tuas marker -->
+                            <text x="35" y="160" class="poi-marker" font-size="12">🏭</text>
                             <g class="district-icons" id="west-icons"></g>
                         </g>
 
-                        <!-- Central District -->
+                        <!-- Central Region - CBD/Orchard/Novena -->
                         <g class="district" id="district-central" data-district="Central">
-                            <path d="M140,100 L260,100 L270,160 L250,200 L150,200 L130,160 Z"
-                                  class="district-shape central" fill="#2d3748"/>
-                            <text x="200" y="140" class="district-label">CENTRAL</text>
-                            <text x="200" y="160" class="district-stats" id="central-stats">--</text>
-                            <!-- CBD marker -->
-                            <circle cx="200" cy="175" r="8" class="cbd-marker"/>
-                            <text x="200" y="178" class="cbd-text">CBD</text>
+                            <path d="M150,100 L250,100 L280,95 Q295,105 300,120 L305,145 Q295,175 270,190 L220,200 L170,195 Q145,180 140,160 L145,130 Q148,110 150,100 Z"
+                                  class="district-shape central" fill="#2d3748" filter="url(#island-shadow)"/>
+                            <text x="220" y="140" class="district-label">CENTRAL</text>
+                            <text x="220" y="155" class="district-stats" id="central-stats">--</text>
+                            <!-- CBD/Marina Bay marker -->
+                            <circle cx="235" cy="175" r="10" class="cbd-marker"/>
+                            <text x="235" y="178" class="cbd-text">CBD</text>
+                            <!-- Orchard marker -->
+                            <circle cx="190" cy="145" r="5" fill="#ed8936" opacity="0.7"/>
+                            <text x="190" y="147" font-size="5" fill="#fff" text-anchor="middle">🛍️</text>
                             <g class="district-icons" id="central-icons"></g>
                         </g>
 
-                        <!-- East District -->
+                        <!-- East Region - Tampines/Changi/Bedok -->
                         <g class="district" id="district-east" data-district="East">
-                            <path d="M260,100 L360,120 L370,180 L340,220 L270,200 L260,160 Z"
-                                  class="district-shape" fill="#2d3748"/>
-                            <text x="310" y="155" class="district-label">EAST</text>
-                            <text x="310" y="175" class="district-stats" id="east-stats">--</text>
-                            <!-- Changi marker -->
-                            <text x="350" y="200" class="poi-marker">✈️</text>
+                            <path d="M280,95 L340,75 Q380,85 410,100 L430,130 Q440,160 420,185 L380,200 Q340,210 300,195 L270,190 Q295,175 305,145 L300,120 Q295,105 280,95 Z"
+                                  class="district-shape" fill="#2d3748" filter="url(#island-shadow)"/>
+                            <text x="355" y="140" class="district-label">EAST</text>
+                            <text x="355" y="155" class="district-stats" id="east-stats">--</text>
+                            <!-- Changi Airport marker -->
+                            <text x="410" y="155" class="poi-marker" font-size="16">✈️</text>
+                            <text x="410" y="170" font-size="7" fill="#a0aec0" text-anchor="middle">Changi</text>
                             <g class="district-icons" id="east-icons"></g>
                         </g>
 
-                        <!-- South District -->
+                        <!-- South Region - Harbourfront/Sentosa area -->
                         <g class="district" id="district-south" data-district="South">
-                            <path d="M130,200 L250,200 L270,240 L230,270 L150,270 L110,240 Z"
-                                  class="district-shape" fill="#2d3748"/>
-                            <text x="190" y="235" class="district-label">SOUTH</text>
-                            <text x="190" y="255" class="district-stats" id="south-stats">--</text>
-                            <!-- Sentosa marker -->
-                            <text x="170" y="285" class="poi-marker">🏝️</text>
+                            <path d="M120,180 Q145,180 170,195 L220,200 L270,190 Q300,195 300,210 Q290,235 250,240 L200,245 Q150,245 120,235 Q90,225 80,210 L80,195 Q95,185 120,180 Z"
+                                  class="district-shape" fill="#2d3748" filter="url(#island-shadow)"/>
+                            <text x="190" y="215" class="district-label">SOUTH</text>
+                            <text x="190" y="230" class="district-stats" id="south-stats">--</text>
                             <g class="district-icons" id="south-icons"></g>
                         </g>
 
-                        <!-- MRT Lines (decorative) -->
+                        <!-- Sentosa Island (separate) -->
+                        <g class="sentosa" opacity="0.9">
+                            <ellipse cx="175" cy="260" rx="30" ry="12" fill="#2d3748" filter="url(#island-shadow)"/>
+                            <text x="175" y="258" class="poi-marker" font-size="14">🏝️</text>
+                            <text x="175" y="272" font-size="7" fill="#a0aec0" text-anchor="middle">Sentosa</text>
+                        </g>
+
+                        <!-- MRT Lines -->
                         <g class="mrt-lines">
-                            <line x1="200" y1="70" x2="200" y2="175" class="mrt-line ns-line"/>
-                            <line x1="90" y1="145" x2="310" y2="155" class="mrt-line ew-line"/>
+                            <!-- North-South Line (Red) -->
+                            <path d="M180,58 Q185,75 200,95 Q210,130 235,175"
+                                  class="mrt-line ns-line" fill="none" stroke-dasharray="3,2"/>
+                            <!-- East-West Line (Green) -->
+                            <path d="M35,145 Q60,150 85,148 Q150,145 190,148 Q280,155 355,150 Q400,145 420,150"
+                                  class="mrt-line ew-line" fill="none" stroke-dasharray="3,2"/>
+                            <!-- Circle Line hint (Orange) -->
+                            <ellipse cx="220" cy="145" rx="40" ry="30"
+                                  fill="none" stroke="#ed8936" stroke-width="2" stroke-dasharray="3,2" opacity="0.4"/>
                         </g>
 
                         <!-- Animation layer for +1 indicators -->
@@ -171,9 +205,19 @@
                     </button>
                 </div>
 
-                <!-- Budget Display -->
+                <!-- Economic Status -->
                 <div class="budget-display">
-                    <h3>Available Resources</h3>
+                    <h3>💰 City Treasury</h3>
+                    <div class="treasury-display">
+                        <div class="treasury-main">
+                            <span class="treasury-label">Funds</span>
+                            <span class="treasury-value" id="city-funds">$1,000K</span>
+                        </div>
+                        <div class="treasury-flow">
+                            <span class="flow-item income">+$<span id="hourly-revenue">0</span>/hr</span>
+                            <span class="flow-item expense">-$<span id="hourly-cost">0</span>/hr</span>
+                        </div>
+                    </div>
                     <div class="budget-bars">
                         <div class="budget-item">
                             <span class="budget-icon">🚌</span>
@@ -191,6 +235,39 @@
                             </div>
                             <span class="budget-value" id="mrt-budget-value">12/12</span>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Environmental Status -->
+                <div class="environment-display">
+                    <h3>🌍 Environmental Health</h3>
+                    <div class="env-stats">
+                        <div class="env-item">
+                            <span class="env-icon">🌱</span>
+                            <span class="env-label">Sustainability</span>
+                            <div class="env-bar">
+                                <div class="env-fill sustainability-fill" id="sustainability-bar"></div>
+                            </div>
+                            <span class="env-value" id="sustainability-value">100</span>
+                        </div>
+                        <div class="env-item">
+                            <span class="env-icon">💨</span>
+                            <span class="env-label">CO₂ This Hour</span>
+                            <span class="env-value emissions" id="hourly-emissions">0 kg</span>
+                        </div>
+                        <div class="env-item">
+                            <span class="env-icon">🏭</span>
+                            <span class="env-label">Total Emissions</span>
+                            <span class="env-value emissions" id="total-emissions">0 kg</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Events -->
+                <div class="events-display" id="events-container">
+                    <h3>⚡ Active Events</h3>
+                    <div class="events-list" id="events-list">
+                        <div class="no-events">No active events</div>
                     </div>
                 </div>
 

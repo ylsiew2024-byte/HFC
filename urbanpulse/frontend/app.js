@@ -5,13 +5,13 @@ const API_BASE = 'http://127.0.0.1:8000';
 // Chart instance
 let scoreChart = null;
 
-// District center coordinates for animations
+// District center coordinates for animations (updated for realistic map)
 const districtCenters = {
-    'Central': { x: 200, y: 150 },
-    'North': { x: 200, y: 70 },
-    'South': { x: 190, y: 245 },
-    'East': { x: 310, y: 160 },
-    'West': { x: 90, y: 150 }
+    'Central': { x: 220, y: 145 },
+    'North': { x: 200, y: 75 },
+    'South': { x: 190, y: 215 },
+    'East': { x: 355, y: 145 },
+    'West': { x: 85, y: 140 }
 };
 
 // Initialize on page load
@@ -301,6 +301,34 @@ function updateUI(data) {
         document.getElementById('mrt-budget-value').textContent = `${mrtRemaining}/12`;
     }
 
+    // Update economics
+    if (data.economics) {
+        const fundsEl = document.getElementById('city-funds');
+        fundsEl.textContent = `$${data.economics.funds.toLocaleString()}K`;
+        fundsEl.className = 'treasury-value' + (data.economics.funds < 200 ? ' low' : '');
+
+        document.getElementById('hourly-revenue').textContent = data.economics.hourly_revenue.toFixed(1);
+        document.getElementById('hourly-cost').textContent = data.economics.hourly_cost.toFixed(1);
+    }
+
+    // Update environment
+    if (data.environment) {
+        const sustainability = data.environment.sustainability_score;
+        document.getElementById('sustainability-bar').style.width = `${sustainability}%`;
+        document.getElementById('sustainability-value').textContent = sustainability.toFixed(0);
+
+        const hourlyEmissions = data.environment.hourly_emissions;
+        const hourlyEl = document.getElementById('hourly-emissions');
+        hourlyEl.textContent = `${hourlyEmissions.toFixed(1)} kg`;
+        hourlyEl.className = 'env-value emissions' + (hourlyEmissions > 100 ? ' high' : '');
+
+        document.getElementById('total-emissions').textContent =
+            `${data.environment.carbon_emissions.toFixed(0)} kg`;
+    }
+
+    // Update active events
+    updateActiveEvents(data.active_events || []);
+
     // Update metrics with color coding
     updateMetric('metric-station', data.metrics.avg_station, 0.5, 0.7);
     updateMetric('metric-bus', data.metrics.avg_bus_load, 0.7, 0.85);
@@ -434,6 +462,30 @@ function addActions(actions) {
     while (list.children.length > 15) {
         list.removeChild(list.lastChild);
     }
+}
+
+// Update active events display
+function updateActiveEvents(events) {
+    const list = document.getElementById('events-list');
+
+    if (!events || events.length === 0) {
+        list.innerHTML = '<div class="no-events">No active events</div>';
+        return;
+    }
+
+    list.innerHTML = events.map(event => `
+        <div class="event-card">
+            <span class="event-icon">${event.icon}</span>
+            <div class="event-info">
+                <div class="event-name">${event.name}</div>
+                <div class="event-details">Affects: ${event.districts.join(', ')} | Demand: +${((event.demand_mult - 1) * 100).toFixed(0)}%</div>
+            </div>
+            <div class="event-timer">
+                <span>&#128337;</span>
+                <span>${event.remaining_hours}h</span>
+            </div>
+        </div>
+    `).join('');
 }
 
 // Helper functions

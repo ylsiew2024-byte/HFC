@@ -26,6 +26,8 @@ def make_city() -> CityState:
             population=500000,
             bus_capacity=120,
             mrt_capacity=40,
+            base_bus_capacity=120,  # Baseline for decay
+            base_mrt_capacity=40,
             bus_load_factor=0.08,  # Very low at midnight
             mrt_load_factor=0.06,
             station_crowding=0.05,
@@ -37,6 +39,8 @@ def make_city() -> CityState:
             population=350000,
             bus_capacity=80,
             mrt_capacity=25,
+            base_bus_capacity=80,
+            base_mrt_capacity=25,
             bus_load_factor=0.05,
             mrt_load_factor=0.04,
             station_crowding=0.03,
@@ -48,6 +52,8 @@ def make_city() -> CityState:
             population=400000,
             bus_capacity=90,
             mrt_capacity=30,
+            base_bus_capacity=90,
+            base_mrt_capacity=30,
             bus_load_factor=0.07,
             mrt_load_factor=0.05,
             station_crowding=0.04,
@@ -59,6 +65,8 @@ def make_city() -> CityState:
             population=380000,
             bus_capacity=85,
             mrt_capacity=28,
+            base_bus_capacity=85,
+            base_mrt_capacity=28,
             bus_load_factor=0.06,
             mrt_load_factor=0.05,
             station_crowding=0.04,
@@ -70,6 +78,8 @@ def make_city() -> CityState:
             population=320000,
             bus_capacity=75,
             mrt_capacity=22,
+            base_bus_capacity=75,
+            base_mrt_capacity=22,
             bus_load_factor=0.05,
             mrt_load_factor=0.04,
             station_crowding=0.03,
@@ -83,6 +93,7 @@ def make_city() -> CityState:
         t=0,
         bus_budget=40,
         mrt_budget=12,
+        funds=1000.0,  # Start with $1M
         action_log=[],
         history=[],
     )
@@ -148,6 +159,19 @@ class Orchestrator:
                 "bus_remaining": city.bus_budget,
                 "mrt_remaining": city.mrt_budget,
             },
+            "economics": {
+                "funds": round(city.funds, 1),
+                "hourly_revenue": round(city.hourly_revenue, 1),
+                "hourly_cost": round(city.hourly_cost, 1),
+                "total_revenue": round(city.total_revenue, 1),
+                "total_costs": round(city.total_costs, 1),
+            },
+            "environment": {
+                "carbon_emissions": round(city.carbon_emissions, 1),
+                "hourly_emissions": round(city.hourly_emissions, 1),
+                "sustainability_score": round(city.sustainability_score, 1),
+            },
+            "active_events": [e.to_dict() for e in city.active_events],
             "history_tail": city.history[-50:],  # Last 50 snapshots
         }
 
@@ -168,5 +192,18 @@ class Orchestrator:
                 "bus_remaining": city.bus_budget,
                 "mrt_remaining": city.mrt_budget,
             },
+            "economics": {
+                "funds": round(city.funds, 1),
+                "hourly_revenue": round(city.hourly_revenue, 1),
+                "hourly_cost": round(city.hourly_cost, 1),
+                "total_revenue": round(city.total_revenue, 1),
+                "total_costs": round(city.total_costs, 1),
+            },
+            "environment": {
+                "carbon_emissions": round(city.carbon_emissions, 1),
+                "hourly_emissions": round(city.hourly_emissions, 1),
+                "sustainability_score": round(city.sustainability_score, 1),
+            },
+            "active_events": [e.to_dict() for e in city.active_events],
             "history_tail": city.history[-50:],
         }
