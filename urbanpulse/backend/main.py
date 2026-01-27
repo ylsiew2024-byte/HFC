@@ -64,29 +64,6 @@ def reset_city():
     return orchestrator.get_state(city)
 
 
-@app.post("/api/jump")
-def jump_to_time(hour: int = Query(default=0, ge=0, le=23)):
-    """Jump to a specific hour of the day."""
-    global city
-    current_hour = city.t % 24
-    current_day = city.t // 24
-
-    # Calculate target time
-    target_time = current_day * 24 + hour
-
-    # If target hour is in the past for current day, go to next day
-    if hour < current_hour:
-        target_time += 24
-
-    # Run steps to reach target time
-    steps_needed = target_time - city.t
-    result = None
-    for _ in range(steps_needed):
-        result = orchestrator.step(city)
-
-    return result if result else orchestrator.get_state(city)
-
-
 @app.get("/")
 def root():
     """API root endpoint."""
@@ -97,7 +74,6 @@ def root():
             "GET /api/state - Get current state",
             "POST /api/step - Advance one step",
             "POST /api/run?n=N - Run N steps",
-            "POST /api/jump?hour=H - Jump to specific hour",
             "POST /api/reset - Reset simulation",
         ],
     }

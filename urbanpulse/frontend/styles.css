@@ -177,34 +177,6 @@ body {
     color: var(--text-secondary);
 }
 
-/* Map Tabs */
-.map-tabs {
-    display: flex;
-    gap: var(--space-sm);
-}
-
-.map-tab {
-    padding: var(--space-sm) var(--space-md);
-    background: var(--bg-card);
-    color: var(--text-secondary);
-    border: none;
-    border-radius: var(--radius-sm);
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.map-tab:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-}
-
-.map-tab.active {
-    background: var(--accent-teal);
-    color: white;
-}
-
 /* === Time Display === */
 .time-display {
     display: flex;
@@ -230,10 +202,6 @@ body {
     position: relative;
     flex: 1;
     min-height: 280px;
-}
-
-.map-container.hidden {
-    display: none;
 }
 
 .singapore-map {
@@ -284,28 +252,8 @@ body {
     stroke-linecap: round;
     opacity: 0.6;
 }
-
-.mrt-line-thick {
-    stroke-linecap: round;
-}
-
-.ns-line { stroke: #D42E12; }
-.ew-line { stroke: #009645; }
-.cc-line { stroke: #FA9E0D; }
-.dt-line { stroke: #005EC4; }
-.ne-line { stroke: #9900AA; }
-
-.mrt-line-group {
-    transition: opacity 0.3s ease;
-}
-
-.mrt-line-group:hover {
-    opacity: 1;
-}
-
-.interchange {
-    stroke-width: 4 !important;
-}
+.ns-line { stroke: #e53e3e; }
+.ew-line { stroke: #38a169; }
 
 /* CBD Marker */
 .cbd-marker {
@@ -380,53 +328,7 @@ body {
 /* === Controls === */
 .controls {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-md);
-}
-
-/* Time Selector */
-.time-selector-group {
-    display: flex;
-    align-items: center;
     gap: var(--space-sm);
-    background: var(--bg-card);
-    padding: var(--space-md);
-    border-radius: var(--radius-md);
-}
-
-.time-selector-label {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    font-weight: 600;
-}
-
-.time-dropdown {
-    flex: 1;
-    padding: var(--space-sm) var(--space-md);
-    background: var(--bg-hover);
-    color: var(--text-primary);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: var(--radius-sm);
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.time-dropdown:hover {
-    background: var(--bg-secondary);
-    border-color: var(--accent-teal);
-}
-
-.time-dropdown:focus {
-    outline: none;
-    border-color: var(--accent-teal);
-    box-shadow: 0 0 0 3px rgba(79, 209, 197, 0.1);
-}
-
-/* Button Group */
-.controls > .btn {
-    width: 100%;
 }
 
 .btn {
@@ -997,18 +899,6 @@ body {
     border-radius: var(--radius-sm);
     border-left: 3px solid var(--accent-orange);
     animation: slideIn 0.3s ease;
-}
-
-.event-card.severity-low {
-    border-left-color: var(--status-good);
-}
-
-.event-card.severity-medium {
-    border-left-color: var(--accent-orange);
-}
-
-.event-card.severity-high {
-    border-left-color: var(--status-critical);
 }
 
 .event-icon {

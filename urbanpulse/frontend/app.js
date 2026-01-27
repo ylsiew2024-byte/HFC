@@ -14,70 +14,11 @@ const districtCenters = {
     'West': { x: 85, y: 140 }
 };
 
-// Current map view
-let currentMapView = 'bus';
-
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     initChart();
-    initTimeSelector();
     fetchState();
 });
-
-// Initialize time dropdown with 24-hour options
-function initTimeSelector() {
-    const selector = document.getElementById('time-selector');
-    for (let hour = 0; hour < 24; hour++) {
-        const option = document.createElement('option');
-        option.value = hour;
-        option.textContent = formatTimeHour(hour);
-        selector.appendChild(option);
-    }
-}
-
-// Format hour to HH:00 format
-function formatTimeHour(hour) {
-    return `${hour.toString().padStart(2, '0')}:00`;
-}
-
-// Switch between bus and train maps
-function switchMap(mapType) {
-    currentMapView = mapType;
-    const busMap = document.getElementById('bus-map-container');
-    const trainMap = document.getElementById('train-map-container');
-    const busTab = document.getElementById('tab-bus');
-    const trainTab = document.getElementById('tab-train');
-
-    if (mapType === 'bus') {
-        busMap.classList.remove('hidden');
-        trainMap.classList.add('hidden');
-        busTab.classList.add('active');
-        trainTab.classList.remove('active');
-    } else {
-        busMap.classList.add('hidden');
-        trainMap.classList.remove('hidden');
-        busTab.classList.remove('active');
-        trainTab.classList.add('active');
-    }
-}
-
-// Jump to specific time (hour)
-async function jumpToTime() {
-    const selector = document.getElementById('time-selector');
-    const targetHour = parseInt(selector.value);
-
-    try {
-        disableButtons();
-        const response = await fetch(`${API_BASE}/api/jump?hour=${targetHour}`, { method: 'POST' });
-        const data = await response.json();
-        updateUI(data);
-    } catch (error) {
-        console.error('Error jumping to time:', error);
-        showError('Failed to jump to specified time');
-    } finally {
-        enableButtons();
-    }
-}
 
 // Initialize Chart.js
 function initChart() {
@@ -325,14 +266,10 @@ function updateUI(data) {
     const hour = t % 24;
     const day = Math.floor(t / 24) + 1;
 
-    // Format time (24-hour format: HH:00)
-    document.getElementById('clock-time').textContent = formatTimeHour(hour);
-
-    // Update time selector to match current time
-    const selector = document.getElementById('time-selector');
-    if (selector) {
-        selector.value = hour;
-    }
+    // Format time (12-hour format)
+    const hour12 = hour % 12 || 12;
+    const ampm = hour < 12 ? 'AM' : 'PM';
+    document.getElementById('clock-time').textContent = `${hour12}:00 ${ampm}`;
 
     // Set period of day with icon
     let period = 'Night';
@@ -354,7 +291,7 @@ function updateUI(data) {
     document.getElementById('header-liveability').textContent = liveability.toFixed(1);
     document.getElementById('header-environment').textContent = environment.toFixed(1);
 
-    // Update transport capacity
+    // Update budgets
     if (data.budgets) {
         const busRemaining = data.budgets.bus_remaining;
         const mrtRemaining = data.budgets.mrt_remaining;
@@ -362,6 +299,16 @@ function updateUI(data) {
         document.getElementById('mrt-budget-bar').style.width = `${(mrtRemaining / 12) * 100}%`;
         document.getElementById('bus-budget-value').textContent = `${busRemaining}/40`;
         document.getElementById('mrt-budget-value').textContent = `${mrtRemaining}/12`;
+    }
+
+    // Update economics
+    if (data.economics) {
+        const fundsEl = document.getElementById('city-funds');
+        fundsEl.textContent = `$${data.economics.funds.toLocaleString()}K`;
+        fundsEl.className = 'treasury-value' + (data.economics.funds < 200 ? ' low' : '');
+
+        document.getElementById('hourly-revenue').textContent = data.economics.hourly_revenue.toFixed(1);
+        document.getElementById('hourly-cost').textContent = data.economics.hourly_cost.toFixed(1);
     }
 
     // Update environment
@@ -526,38 +473,19 @@ function updateActiveEvents(events) {
         return;
     }
 
-    list.innerHTML = events.map(event => {
-        // Determine event type and display appropriate information
-        let detailsHTML = '';
-        let severityClass = '';
-
-        if (event.type === 'train_disruption') {
-            // Train breakdown/disruption
-            const severity = event.severity || 'medium';
-            severityClass = `severity-${severity}`;
-            detailsHTML = `Line: ${event.line} | ${event.description} | Severity: ${severity.toUpperCase()}`;
-        } else if (event.type === 'weather') {
-            // Weather event
-            detailsHTML = `Areas: ${event.areas?.join(', ') || event.districts?.join(', ')} | Impact: ${event.impact || 'Slower speeds, higher congestion'}`;
-        } else {
-            // Regular event (festival, concert, etc.)
-            detailsHTML = `Affects: ${event.districts.join(', ')} | Demand: +${((event.demand_mult - 1) * 100).toFixed(0)}%`;
-        }
-
-        return `
-            <div class="event-card ${severityClass}">
-                <span class="event-icon">${event.icon}</span>
-                <div class="event-info">
-                    <div class="event-name">${event.name}</div>
-                    <div class="event-details">${detailsHTML}</div>
-                </div>
-                <div class="event-timer">
-                    <span>&#128337;</span>
-                    <span>${event.remaining_hours || event.duration || '--'}h</span>
-                </div>
+    list.innerHTML = events.map(event => `
+        <div class="event-card">
+            <span class="event-icon">${event.icon}</span>
+            <div class="event-info">
+                <div class="event-name">${event.name}</div>
+                <div class="event-details">Affects: ${event.districts.join(', ')} | Demand: +${((event.demand_mult - 1) * 100).toFixed(0)}%</div>
             </div>
-        `;
-    }).join('');
+            <div class="event-timer">
+                <span>&#128337;</span>
+                <span>${event.remaining_hours}h</span>
+            </div>
+        </div>
+    `).join('');
 }
 
 // Helper functions
