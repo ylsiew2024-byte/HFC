@@ -12,7 +12,7 @@
         <!-- Header -->
         <header class="header">
             <div class="logo">
-                <span class="logo-icon">🚇</span>
+                <span class="logo-icon">&#128647;</span>
                 <h1>MetroMind</h1>
             </div>
             <p class="tagline">Multi-Agent Transit Intelligence for Singapore</p>
@@ -30,152 +30,216 @@
 
         <!-- Main Dashboard -->
         <main class="dashboard">
-            <!-- Left Panel: Map -->
+            <!-- Left Panel: Maps -->
             <section class="map-panel">
+                <!-- Time & Weather Bar -->
                 <div class="panel-header">
-                    <h2>Singapore Transit Map</h2>
+                    <h2>Singapore Transit Maps</h2>
                     <div class="time-display">
-                        <span class="time-icon" id="time-icon">🌙</span>
-                        <span class="time-text" id="clock-time">12:00 AM</span>
+                        <span class="time-icon" id="time-icon">&#127769;</span>
+                        <span class="time-text" id="clock-time">00:00</span>
                         <span class="time-period" id="clock-period">Night</span>
                     </div>
                 </div>
 
-                <!-- Singapore Map SVG - Realistic Shape -->
-                <div class="map-container">
-                    <svg viewBox="0 0 450 280" class="singapore-map" id="sg-map">
-                        <!-- Background -->
+                <div class="weather-badge" id="weather-badge">
+                    <span class="weather-icon" id="weather-icon">&#9728;&#65039;</span>
+                    <span class="weather-text" id="weather-text">Clear</span>
+                    <span class="weather-region" id="weather-region">Islandwide</span>
+                </div>
+
+                <!-- Map Tabs -->
+                <div class="map-tabs">
+                    <button class="map-tab active" id="tab-bus" onclick="switchMap('bus')">&#128652; Bus Map</button>
+                    <button class="map-tab" id="tab-train" onclick="switchMap('train')">&#128647; Train Map</button>
+                </div>
+
+                <!-- Bus District Map -->
+                <div class="map-container" id="bus-map-container">
+                    <svg viewBox="0 0 450 280" class="singapore-map" id="sg-map-bus">
                         <defs>
                             <linearGradient id="water-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
                                 <stop offset="0%" style="stop-color:#1a365d;stop-opacity:1" />
                                 <stop offset="100%" style="stop-color:#2c5282;stop-opacity:1" />
                             </linearGradient>
-                            <filter id="glow">
-                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                                <feMerge>
-                                    <feMergeNode in="coloredBlur"/>
-                                    <feMergeNode in="SourceGraphic"/>
-                                </feMerge>
-                            </filter>
-                            <!-- Drop shadow for island -->
                             <filter id="island-shadow" x="-10%" y="-10%" width="120%" height="120%">
                                 <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.5"/>
                             </filter>
                         </defs>
-
-                        <!-- Water background -->
                         <rect width="450" height="280" fill="url(#water-gradient)"/>
-
-                        <!-- Malaysia (Johor) hint at top -->
-                        <path d="M20,0 L430,0 L430,35 Q350,45 280,40 Q200,35 120,42 Q60,48 20,35 Z"
-                              fill="#1e3a5f" opacity="0.5"/>
+                        <!-- Malaysia hint -->
+                        <path d="M20,0 L430,0 L430,35 Q350,45 280,40 Q200,35 120,42 Q60,48 20,35 Z" fill="#1e3a5f" opacity="0.5"/>
                         <text x="225" y="20" fill="#4a5568" font-size="9" text-anchor="middle">JOHOR, MALAYSIA</text>
 
-                        <!-- Straits of Johor -->
-                        <path d="M20,35 Q120,45 200,40 Q300,35 430,45 L430,55 Q300,50 200,55 Q100,60 20,50 Z"
-                              fill="#1a4971" opacity="0.6"/>
-
-                        <!-- North Region - Woodlands/Sembawang/Yishun -->
+                        <!-- North -->
                         <g class="district" id="district-north" data-district="North">
                             <path d="M100,55 Q150,50 200,52 Q260,50 320,55 L340,75 Q320,90 280,95 L250,100 Q200,98 150,100 L120,95 Q90,85 80,70 Z"
                                   class="district-shape" fill="#2d3748" filter="url(#island-shadow)"/>
                             <text x="200" y="72" class="district-label">NORTH</text>
                             <text x="200" y="85" class="district-stats" id="north-stats">--</text>
-                            <!-- Woodlands Checkpoint marker -->
-                            <circle cx="180" cy="58" r="4" fill="#f6e05e" opacity="0.8"/>
-                            <text x="180" y="61" font-size="5" fill="#1a202c" text-anchor="middle" font-weight="bold">WL</text>
                             <g class="district-icons" id="north-icons"></g>
                         </g>
-
-                        <!-- West Region - Jurong/Tuas -->
+                        <!-- West -->
                         <g class="district" id="district-west" data-district="West">
                             <path d="M25,100 L80,70 L120,95 L150,100 L155,135 Q145,165 120,180 L80,195 Q45,185 30,165 L20,140 Q15,120 25,100 Z"
                                   class="district-shape" fill="#2d3748" filter="url(#island-shadow)"/>
                             <text x="85" y="135" class="district-label">WEST</text>
                             <text x="85" y="150" class="district-stats" id="west-stats">--</text>
-                            <!-- Tuas marker -->
-                            <text x="35" y="160" class="poi-marker" font-size="12">🏭</text>
                             <g class="district-icons" id="west-icons"></g>
                         </g>
-
-                        <!-- Central Region - CBD/Orchard/Novena -->
+                        <!-- Central -->
                         <g class="district" id="district-central" data-district="Central">
                             <path d="M150,100 L250,100 L280,95 Q295,105 300,120 L305,145 Q295,175 270,190 L220,200 L170,195 Q145,180 140,160 L145,130 Q148,110 150,100 Z"
                                   class="district-shape central" fill="#2d3748" filter="url(#island-shadow)"/>
                             <text x="220" y="140" class="district-label">CENTRAL</text>
                             <text x="220" y="155" class="district-stats" id="central-stats">--</text>
-                            <!-- CBD/Marina Bay marker -->
                             <circle cx="235" cy="175" r="10" class="cbd-marker"/>
                             <text x="235" y="178" class="cbd-text">CBD</text>
-                            <!-- Orchard marker -->
-                            <circle cx="190" cy="145" r="5" fill="#ed8936" opacity="0.7"/>
-                            <text x="190" y="147" font-size="5" fill="#fff" text-anchor="middle">🛍️</text>
                             <g class="district-icons" id="central-icons"></g>
                         </g>
-
-                        <!-- East Region - Tampines/Changi/Bedok -->
+                        <!-- East -->
                         <g class="district" id="district-east" data-district="East">
                             <path d="M280,95 L340,75 Q380,85 410,100 L430,130 Q440,160 420,185 L380,200 Q340,210 300,195 L270,190 Q295,175 305,145 L300,120 Q295,105 280,95 Z"
                                   class="district-shape" fill="#2d3748" filter="url(#island-shadow)"/>
                             <text x="355" y="140" class="district-label">EAST</text>
                             <text x="355" y="155" class="district-stats" id="east-stats">--</text>
-                            <!-- Changi Airport marker -->
-                            <text x="410" y="155" class="poi-marker" font-size="16">✈️</text>
-                            <text x="410" y="170" font-size="7" fill="#a0aec0" text-anchor="middle">Changi</text>
+                            <text x="410" y="155" class="poi-marker" font-size="16">&#9992;&#65039;</text>
                             <g class="district-icons" id="east-icons"></g>
                         </g>
-
-                        <!-- South Region - Harbourfront/Sentosa area -->
-                        <g class="district" id="district-south" data-district="South">
-                            <path d="M120,180 Q145,180 170,195 L220,200 L270,190 Q300,195 300,210 Q290,235 250,240 L200,245 Q150,245 120,235 Q90,225 80,210 L80,195 Q95,185 120,180 Z"
-                                  class="district-shape" fill="#2d3748" filter="url(#island-shadow)"/>
-                            <text x="190" y="215" class="district-label">SOUTH</text>
-                            <text x="190" y="230" class="district-stats" id="south-stats">--</text>
-                            <g class="district-icons" id="south-icons"></g>
-                        </g>
-
-                        <!-- Sentosa Island (separate) -->
-                        <g class="sentosa" opacity="0.9">
-                            <ellipse cx="175" cy="260" rx="30" ry="12" fill="#2d3748" filter="url(#island-shadow)"/>
-                            <text x="175" y="258" class="poi-marker" font-size="14">🏝️</text>
-                            <text x="175" y="272" font-size="7" fill="#a0aec0" text-anchor="middle">Sentosa</text>
-                        </g>
-
-                        <!-- MRT Lines -->
-                        <g class="mrt-lines">
-                            <!-- North-South Line (Red) -->
-                            <path d="M180,58 Q185,75 200,95 Q210,130 235,175"
-                                  class="mrt-line ns-line" fill="none" stroke-dasharray="3,2"/>
-                            <!-- East-West Line (Green) -->
-                            <path d="M35,145 Q60,150 85,148 Q150,145 190,148 Q280,155 355,150 Q400,145 420,150"
-                                  class="mrt-line ew-line" fill="none" stroke-dasharray="3,2"/>
-                            <!-- Circle Line hint (Orange) -->
-                            <ellipse cx="220" cy="145" rx="40" ry="30"
-                                  fill="none" stroke="#ed8936" stroke-width="2" stroke-dasharray="3,2" opacity="0.4"/>
-                        </g>
-
-                        <!-- Animation layer for +1 indicators -->
-                        <g id="animation-layer"></g>
+                        <g id="bus-animation-layer"></g>
                     </svg>
 
-                    <!-- Map Legend -->
                     <div class="map-legend">
-                        <div class="legend-item">
-                            <span class="legend-color good"></span>
-                            <span>Low Load</span>
-                        </div>
-                        <div class="legend-item">
-                            <span class="legend-color moderate"></span>
-                            <span>Moderate</span>
-                        </div>
-                        <div class="legend-item">
-                            <span class="legend-color busy"></span>
-                            <span>Busy</span>
-                        </div>
-                        <div class="legend-item">
-                            <span class="legend-color critical"></span>
-                            <span>Critical</span>
-                        </div>
+                        <div class="legend-item"><span class="legend-color good"></span><span>Low</span></div>
+                        <div class="legend-item"><span class="legend-color moderate"></span><span>Moderate</span></div>
+                        <div class="legend-item"><span class="legend-color busy"></span><span>Busy</span></div>
+                        <div class="legend-item"><span class="legend-color critical"></span><span>Critical</span></div>
+                    </div>
+                </div>
+
+                <!-- Train Line Map -->
+                <div class="map-container hidden" id="train-map-container">
+                    <svg viewBox="0 0 500 340" class="train-map" id="sg-map-train">
+                        <defs>
+                            <linearGradient id="train-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#111827;stop-opacity:1"/>
+                                <stop offset="100%" style="stop-color:#1e293b;stop-opacity:1"/>
+                            </linearGradient>
+                        </defs>
+                        <rect width="500" height="340" fill="url(#train-bg)"/>
+
+                        <!-- Grid lines for schematic feel -->
+                        <g opacity="0.05" stroke="#fff" stroke-width="0.5">
+                            <line x1="0" y1="85" x2="500" y2="85"/>
+                            <line x1="0" y1="170" x2="500" y2="170"/>
+                            <line x1="0" y1="255" x2="500" y2="255"/>
+                            <line x1="125" y1="0" x2="125" y2="340"/>
+                            <line x1="250" y1="0" x2="250" y2="340"/>
+                            <line x1="375" y1="0" x2="375" y2="340"/>
+                        </g>
+
+                        <!-- NSL - North South Line (Red) - Vertical with curves -->
+                        <g id="line-NSL" class="train-line-group">
+                            <path d="M220,30 L220,80 Q220,100 230,115 L240,130 Q250,145 250,170 L250,240 Q250,265 240,280 L230,295"
+                                  fill="none" stroke="#e53e3e" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" class="train-line-path" id="nsl-path"/>
+                            <!-- Stations -->
+                            <circle cx="220" cy="30" r="5" fill="#fff" stroke="#e53e3e" stroke-width="2"/>
+                            <circle cx="220" cy="80" r="5" fill="#fff" stroke="#e53e3e" stroke-width="2"/>
+                            <circle cx="250" cy="170" r="7" fill="#fff" stroke="#e53e3e" stroke-width="2"/>
+                            <circle cx="250" cy="240" r="5" fill="#fff" stroke="#e53e3e" stroke-width="2"/>
+                            <circle cx="230" cy="295" r="5" fill="#fff" stroke="#e53e3e" stroke-width="2"/>
+                            <!-- Labels -->
+                            <text x="205" y="28" fill="#e53e3e" font-size="9" text-anchor="end" font-weight="600">Woodlands</text>
+                            <text x="205" y="83" fill="#a0aec0" font-size="8" text-anchor="end">Yishun</text>
+                            <text x="235" y="185" fill="#a0aec0" font-size="8" text-anchor="end">Orchard</text>
+                            <text x="235" y="253" fill="#a0aec0" font-size="8" text-anchor="end">City Hall</text>
+                            <text x="215" y="300" fill="#a0aec0" font-size="8" text-anchor="end">Marina South</text>
+                        </g>
+
+                        <!-- EWL - East West Line (Green) - Horizontal -->
+                        <g id="line-EWL" class="train-line-group">
+                            <path d="M40,170 L100,170 Q120,170 135,160 L165,140 Q180,130 200,130 L280,130 Q300,130 320,140 L350,160 Q365,170 385,170 L460,170"
+                                  fill="none" stroke="#48bb78" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" class="train-line-path" id="ewl-path"/>
+                            <circle cx="40" cy="170" r="5" fill="#fff" stroke="#48bb78" stroke-width="2"/>
+                            <circle cx="135" cy="155" r="5" fill="#fff" stroke="#48bb78" stroke-width="2"/>
+                            <circle cx="250" cy="130" r="7" fill="#fff" stroke="#48bb78" stroke-width="2"/>
+                            <circle cx="385" cy="170" r="5" fill="#fff" stroke="#48bb78" stroke-width="2"/>
+                            <circle cx="460" cy="170" r="5" fill="#fff" stroke="#48bb78" stroke-width="2"/>
+                            <text x="40" y="188" fill="#48bb78" font-size="9" text-anchor="middle" font-weight="600">Tuas</text>
+                            <text x="135" y="148" fill="#a0aec0" font-size="8" text-anchor="middle">Jurong</text>
+                            <text x="385" y="188" fill="#a0aec0" font-size="8" text-anchor="middle">Tampines</text>
+                            <text x="460" y="188" fill="#48bb78" font-size="9" text-anchor="middle" font-weight="600">Changi</text>
+                        </g>
+
+                        <!-- NEL - North East Line (Purple) - Diagonal -->
+                        <g id="line-NEL" class="train-line-group">
+                            <path d="M140,50 L170,80 Q185,95 200,110 L240,155 Q250,170 260,185 L290,230 Q300,245 310,260"
+                                  fill="none" stroke="#9f7aea" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" class="train-line-path" id="nel-path"/>
+                            <circle cx="140" cy="50" r="5" fill="#fff" stroke="#9f7aea" stroke-width="2"/>
+                            <circle cx="200" cy="110" r="5" fill="#fff" stroke="#9f7aea" stroke-width="2"/>
+                            <circle cx="250" cy="170" r="7" fill="#fff" stroke="#9f7aea" stroke-width="2"/>
+                            <circle cx="310" cy="260" r="5" fill="#fff" stroke="#9f7aea" stroke-width="2"/>
+                            <text x="125" y="48" fill="#9f7aea" font-size="9" text-anchor="end" font-weight="600">Punggol</text>
+                            <text x="185" y="108" fill="#a0aec0" font-size="8" text-anchor="end">Serangoon</text>
+                            <text x="325" y="263" fill="#9f7aea" font-size="9" font-weight="600">HarbourFront</text>
+                        </g>
+
+                        <!-- CCL - Circle Line (Orange) - Curved loop -->
+                        <g id="line-CCL" class="train-line-group">
+                            <path d="M180,90 Q140,120 140,170 Q140,220 180,250 Q220,280 270,280 Q320,280 360,250 Q400,220 400,170 Q400,120 360,90 Q320,60 270,60 Q220,60 180,90 Z"
+                                  fill="none" stroke="#ed8936" stroke-width="6" stroke-linecap="round" stroke-dasharray="none" class="train-line-path" id="ccl-path" opacity="0.85"/>
+                            <circle cx="180" cy="90" r="4" fill="#fff" stroke="#ed8936" stroke-width="2"/>
+                            <circle cx="140" cy="170" r="4" fill="#fff" stroke="#ed8936" stroke-width="2"/>
+                            <circle cx="270" cy="280" r="4" fill="#fff" stroke="#ed8936" stroke-width="2"/>
+                            <circle cx="400" cy="170" r="4" fill="#fff" stroke="#ed8936" stroke-width="2"/>
+                            <circle cx="270" cy="60" r="4" fill="#fff" stroke="#ed8936" stroke-width="2"/>
+                            <text x="270" y="48" fill="#ed8936" font-size="9" text-anchor="middle" font-weight="600">Bishan</text>
+                            <text x="125" y="173" fill="#a0aec0" font-size="8" text-anchor="end">Botanic Gdns</text>
+                            <text x="270" y="297" fill="#a0aec0" font-size="8" text-anchor="middle">Bayfront</text>
+                            <text x="415" y="173" fill="#a0aec0" font-size="8">MacPherson</text>
+                        </g>
+
+                        <!-- Interchange label at center -->
+                        <g>
+                            <circle cx="250" cy="170" r="10" fill="#1a202c" stroke="#fff" stroke-width="2"/>
+                            <text x="250" y="174" fill="#fff" font-size="7" text-anchor="middle" font-weight="700">INT</text>
+                            <text x="265" y="165" fill="#fff" font-size="7" font-weight="600">Dhoby Ghaut</text>
+                        </g>
+
+                        <!-- Line status labels (updated by JS) -->
+                        <g id="train-status-labels">
+                            <g id="nsl-status" transform="translate(330, 30)">
+                                <rect width="150" height="40" rx="6" fill="#1a202c" stroke="#e53e3e" stroke-width="1" opacity="0.9"/>
+                                <text x="10" y="15" fill="#e53e3e" font-size="10" font-weight="700">NSL</text>
+                                <text x="50" y="15" fill="#a0aec0" font-size="8" id="nsl-info">Load: -- | Freq: --</text>
+                                <text x="10" y="32" fill="#718096" font-size="8" id="nsl-action">No actions</text>
+                            </g>
+                            <g id="ewl-status" transform="translate(330, 80)">
+                                <rect width="150" height="40" rx="6" fill="#1a202c" stroke="#48bb78" stroke-width="1" opacity="0.9"/>
+                                <text x="10" y="15" fill="#48bb78" font-size="10" font-weight="700">EWL</text>
+                                <text x="50" y="15" fill="#a0aec0" font-size="8" id="ewl-info">Load: -- | Freq: --</text>
+                                <text x="10" y="32" fill="#718096" font-size="8" id="ewl-action">No actions</text>
+                            </g>
+                            <g id="nel-status" transform="translate(10, 280)">
+                                <rect width="150" height="40" rx="6" fill="#1a202c" stroke="#9f7aea" stroke-width="1" opacity="0.9"/>
+                                <text x="10" y="15" fill="#9f7aea" font-size="10" font-weight="700">NEL</text>
+                                <text x="50" y="15" fill="#a0aec0" font-size="8" id="nel-info">Load: -- | Freq: --</text>
+                                <text x="10" y="32" fill="#718096" font-size="8" id="nel-action">No actions</text>
+                            </g>
+                            <g id="ccl-status" transform="translate(10, 10)">
+                                <rect width="150" height="40" rx="6" fill="#1a202c" stroke="#ed8936" stroke-width="1" opacity="0.9"/>
+                                <text x="10" y="15" fill="#ed8936" font-size="10" font-weight="700">CCL</text>
+                                <text x="50" y="15" fill="#a0aec0" font-size="8" id="ccl-info">Load: -- | Freq: --</text>
+                                <text x="10" y="32" fill="#718096" font-size="8" id="ccl-action">No actions</text>
+                            </g>
+                        </g>
+                    </svg>
+
+                    <div class="map-legend train-legend">
+                        <div class="legend-item"><span class="legend-line" style="background:#e53e3e"></span><span>NSL</span></div>
+                        <div class="legend-item"><span class="legend-line" style="background:#48bb78"></span><span>EWL</span></div>
+                        <div class="legend-item"><span class="legend-line" style="background:#9f7aea"></span><span>NEL</span></div>
+                        <div class="legend-item"><span class="legend-line" style="background:#ed8936"></span><span>CCL</span></div>
                     </div>
                 </div>
 
@@ -184,55 +248,52 @@
                     <span class="day-label">Day</span>
                     <span class="day-value" id="day-count">1</span>
                     <span class="hour-label">Hour</span>
-                    <span class="hour-value" id="hour-count">0</span>
+                    <span class="hour-value" id="hour-count">00:00</span>
                 </div>
             </section>
 
             <!-- Center Panel: Controls & Metrics -->
             <section class="control-panel">
+                <!-- Hour selector -->
                 <div class="controls">
-                    <button id="btn-step" onclick="step()" class="btn btn-primary">
-                        <span class="btn-icon">▶</span>
-                        <span class="btn-text">Next Hour</span>
+                    <div class="hour-select-group">
+                        <label for="hour-select" class="hour-label-text">Simulate to hour:</label>
+                        <select id="hour-select" class="hour-dropdown">
+                            <option value="0">00:00</option><option value="1">01:00</option>
+                            <option value="2">02:00</option><option value="3">03:00</option>
+                            <option value="4">04:00</option><option value="5">05:00</option>
+                            <option value="6">06:00</option><option value="7">07:00</option>
+                            <option value="8" selected>08:00</option><option value="9">09:00</option>
+                            <option value="10">10:00</option><option value="11">11:00</option>
+                            <option value="12">12:00</option><option value="13">13:00</option>
+                            <option value="14">14:00</option><option value="15">15:00</option>
+                            <option value="16">16:00</option><option value="17">17:00</option>
+                            <option value="18">18:00</option><option value="19">19:00</option>
+                            <option value="20">20:00</option><option value="21">21:00</option>
+                            <option value="22">22:00</option><option value="23">23:00</option>
+                        </select>
+                    </div>
+                    <button id="btn-simulate" onclick="simulateHour()" class="btn btn-primary">
+                        <span class="btn-icon">&#9654;</span>
+                        <span class="btn-text">Simulate</span>
                     </button>
-                    <button id="btn-run10" onclick="run10()" class="btn btn-secondary">
-                        <span class="btn-icon">⏩</span>
-                        <span class="btn-text">Skip 10h</span>
-                    </button>
-                    <button id="btn-reset" onclick="reset()" class="btn btn-danger">
-                        <span class="btn-icon">↺</span>
-                        <span class="btn-text">Reset</span>
-                    </button>
+                    <a href="#" onclick="resetSim(); return false;" class="reset-link" id="btn-reset">Reset</a>
                 </div>
 
-                <!-- Economic Status -->
+                <!-- Resource Capacity -->
                 <div class="budget-display">
-                    <h3>💰 City Treasury</h3>
-                    <div class="treasury-display">
-                        <div class="treasury-main">
-                            <span class="treasury-label">Funds</span>
-                            <span class="treasury-value" id="city-funds">$1,000K</span>
-                        </div>
-                        <div class="treasury-flow">
-                            <span class="flow-item income">+$<span id="hourly-revenue">0</span>/hr</span>
-                            <span class="flow-item expense">-$<span id="hourly-cost">0</span>/hr</span>
-                        </div>
-                    </div>
+                    <h3>&#128642; Fleet Capacity</h3>
                     <div class="budget-bars">
                         <div class="budget-item">
-                            <span class="budget-icon">🚌</span>
-                            <span class="budget-label">Buses</span>
-                            <div class="budget-bar">
-                                <div class="budget-fill bus-fill" id="bus-budget-bar"></div>
-                            </div>
+                            <span class="budget-icon">&#128652;</span>
+                            <span class="budget-label">Bus Fleet</span>
+                            <div class="budget-bar"><div class="budget-fill bus-fill" id="bus-budget-bar"></div></div>
                             <span class="budget-value" id="bus-budget-value">40/40</span>
                         </div>
                         <div class="budget-item">
-                            <span class="budget-icon">🚇</span>
-                            <span class="budget-label">Trains</span>
-                            <div class="budget-bar">
-                                <div class="budget-fill mrt-fill" id="mrt-budget-bar"></div>
-                            </div>
+                            <span class="budget-icon">&#128647;</span>
+                            <span class="budget-label">Train Slots</span>
+                            <div class="budget-bar"><div class="budget-fill mrt-fill" id="mrt-budget-bar"></div></div>
                             <span class="budget-value" id="mrt-budget-value">12/12</span>
                         </div>
                     </div>
@@ -240,34 +301,24 @@
 
                 <!-- Environmental Status -->
                 <div class="environment-display">
-                    <h3>🌍 Environmental Health</h3>
+                    <h3>&#127757; Environmental Health</h3>
                     <div class="env-stats">
                         <div class="env-item">
-                            <span class="env-icon">🌱</span>
+                            <span class="env-icon">&#127793;</span>
                             <span class="env-label">Sustainability</span>
-                            <div class="env-bar">
-                                <div class="env-fill sustainability-fill" id="sustainability-bar"></div>
-                            </div>
+                            <div class="env-bar"><div class="env-fill sustainability-fill" id="sustainability-bar"></div></div>
                             <span class="env-value" id="sustainability-value">100</span>
                         </div>
                         <div class="env-item">
-                            <span class="env-icon">💨</span>
-                            <span class="env-label">CO₂ This Hour</span>
+                            <span class="env-icon">&#128168;</span>
+                            <span class="env-label">CO2 This Hour</span>
                             <span class="env-value emissions" id="hourly-emissions">0 kg</span>
                         </div>
                         <div class="env-item">
-                            <span class="env-icon">🏭</span>
+                            <span class="env-icon">&#127981;</span>
                             <span class="env-label">Total Emissions</span>
                             <span class="env-value emissions" id="total-emissions">0 kg</span>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Active Events -->
-                <div class="events-display" id="events-container">
-                    <h3>⚡ Active Events</h3>
-                    <div class="events-list" id="events-list">
-                        <div class="no-events">No active events</div>
                     </div>
                 </div>
 
@@ -276,31 +327,31 @@
                     <h3>City Vitals</h3>
                     <div class="metric-row">
                         <div class="metric-item">
-                            <span class="metric-icon">🚉</span>
+                            <span class="metric-icon">&#128649;</span>
                             <span class="metric-label">Station Crowding</span>
                             <span class="metric-value" id="metric-station">--</span>
                         </div>
                         <div class="metric-item">
-                            <span class="metric-icon">🚌</span>
+                            <span class="metric-icon">&#128652;</span>
                             <span class="metric-label">Bus Load</span>
                             <span class="metric-value" id="metric-bus">--</span>
                         </div>
                     </div>
                     <div class="metric-row">
                         <div class="metric-item">
-                            <span class="metric-icon">🚇</span>
+                            <span class="metric-icon">&#128647;</span>
                             <span class="metric-label">MRT Load</span>
                             <span class="metric-value" id="metric-mrt">--</span>
                         </div>
                         <div class="metric-item">
-                            <span class="metric-icon">🚗</span>
+                            <span class="metric-icon">&#128663;</span>
                             <span class="metric-label">Traffic</span>
                             <span class="metric-value" id="metric-traffic">--</span>
                         </div>
                     </div>
                     <div class="metric-row single">
                         <div class="metric-item">
-                            <span class="metric-icon">🌿</span>
+                            <span class="metric-icon">&#127807;</span>
                             <span class="metric-label">Air Quality</span>
                             <span class="metric-value" id="metric-air">--</span>
                         </div>
@@ -310,81 +361,87 @@
                 <!-- Score History Chart -->
                 <div class="chart-section">
                     <h3>Performance Trend</h3>
-                    <div class="chart-container">
-                        <canvas id="score-chart"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="score-chart"></canvas></div>
                 </div>
             </section>
 
-            <!-- Right Panel: Agents & Actions -->
+            <!-- Right Panel: Agents & Active Events -->
             <section class="agent-panel">
                 <!-- Agent Status -->
                 <div class="agent-status">
-                    <h2>🤖 Agent Orchestra</h2>
+                    <h2>&#129302; Agent Orchestra</h2>
                     <div class="agents-grid">
                         <div class="agent-card" id="agent-monitor">
-                            <div class="agent-icon">👁️</div>
-                            <div class="agent-info">
-                                <span class="agent-name">Monitor</span>
-                                <span class="agent-state" id="monitor-state">Idle</span>
-                            </div>
+                            <div class="agent-icon">&#128065;&#65039;</div>
+                            <div class="agent-info"><span class="agent-name">Monitor</span><span class="agent-state" id="monitor-state">Idle</span></div>
                             <div class="agent-indicator"></div>
                         </div>
                         <div class="agent-card" id="agent-planner">
-                            <div class="agent-icon">📋</div>
-                            <div class="agent-info">
-                                <span class="agent-name">Planner</span>
-                                <span class="agent-state" id="planner-state">Idle</span>
-                            </div>
+                            <div class="agent-icon">&#128203;</div>
+                            <div class="agent-info"><span class="agent-name">Planner</span><span class="agent-state" id="planner-state">Idle</span></div>
                             <div class="agent-indicator"></div>
                         </div>
                         <div class="agent-card" id="agent-policy">
-                            <div class="agent-icon">⚖️</div>
-                            <div class="agent-info">
-                                <span class="agent-name">Policy</span>
-                                <span class="agent-state" id="policy-state">Idle</span>
-                            </div>
+                            <div class="agent-icon">&#9878;&#65039;</div>
+                            <div class="agent-info"><span class="agent-name">Policy</span><span class="agent-state" id="policy-state">Idle</span></div>
                             <div class="agent-indicator"></div>
                         </div>
                         <div class="agent-card" id="agent-coordinator">
-                            <div class="agent-icon">🎯</div>
-                            <div class="agent-info">
-                                <span class="agent-name">Coordinator</span>
-                                <span class="agent-state" id="coordinator-state">Idle</span>
-                            </div>
+                            <div class="agent-icon">&#127919;</div>
+                            <div class="agent-info"><span class="agent-name">Coordinator</span><span class="agent-state" id="coordinator-state">Idle</span></div>
                             <div class="agent-indicator"></div>
                         </div>
                         <div class="agent-card" id="agent-executor">
-                            <div class="agent-icon">⚡</div>
-                            <div class="agent-info">
-                                <span class="agent-name">Executor</span>
-                                <span class="agent-state" id="executor-state">Idle</span>
-                            </div>
+                            <div class="agent-icon">&#9889;</div>
+                            <div class="agent-info"><span class="agent-name">Executor</span><span class="agent-state" id="executor-state">Idle</span></div>
                             <div class="agent-indicator"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Action Feed -->
-                <div class="action-feed">
-                    <h2>📡 Live Interventions</h2>
-                    <div id="action-list" class="action-list">
-                        <div class="action-placeholder">
-                            <span class="placeholder-icon">🚀</span>
-                            <span>Run simulation to see agent decisions</span>
+                <!-- Active Events (ops dashboard style) -->
+                <div class="active-events-panel">
+                    <h2>&#128225; Active Events</h2>
+                    <div id="active-events-content">
+                        <!-- Weather Section -->
+                        <div class="event-section">
+                            <h3 class="event-section-title">Weather</h3>
+                            <div id="events-weather" class="event-section-body">
+                                <div class="no-events">Clear skies</div>
+                            </div>
+                        </div>
+                        <!-- Train Lines Section -->
+                        <div class="event-section">
+                            <h3 class="event-section-title">Train Lines</h3>
+                            <div id="events-trains" class="event-section-body">
+                                <div class="no-events">All lines normal</div>
+                            </div>
+                        </div>
+                        <!-- District Alerts Section -->
+                        <div class="event-section">
+                            <h3 class="event-section-title">District Alerts</h3>
+                            <div id="events-districts" class="event-section-body">
+                                <div class="no-events">No alerts</div>
+                            </div>
+                        </div>
+                        <!-- City Events -->
+                        <div class="event-section">
+                            <h3 class="event-section-title">City Events</h3>
+                            <div id="events-city" class="event-section-body">
+                                <div class="no-events">No active events</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
         </main>
 
-        <!-- Footer -->
         <footer class="footer">
             <span>MetroMind</span>
-            <span class="separator">•</span>
+            <span class="separator">&bull;</span>
             <span>Multi-Agent Transit AI</span>
-            <span class="separator">•</span>
-            <span>Singapore 2024</span>
+            <span class="separator">&bull;</span>
+            <span>Singapore 2025</span>
         </footer>
     </div>
 

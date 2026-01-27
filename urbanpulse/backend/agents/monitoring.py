@@ -9,15 +9,14 @@ class MonitoringAgent:
     """Observes city state and produces observation reports."""
 
     def observe(self, city: CityState) -> Dict[str, Any]:
-        """
-        Observe the current city state.
-        Returns a dict with observations for each district.
-        """
         observations = {
             "t": city.t,
-            "bus_budget_available": city.bus_budget,
-            "mrt_budget_available": city.mrt_budget,
-            "districts": {}
+            "hour": city.hour_of_day,
+            "bus_fleet_available": city.bus_fleet_capacity,
+            "train_slots_available": city.train_slot_capacity,
+            "weather": city.weather.to_dict(),
+            "districts": {},
+            "train_lines": {},
         }
 
         for district in city.districts:
@@ -30,6 +29,13 @@ class MonitoringAgent:
                 "bus_capacity": district.bus_capacity,
                 "mrt_capacity": district.mrt_capacity,
                 "nudges_active": district.nudges_active,
+            }
+
+        for line_id, line in city.train_lines.items():
+            observations["train_lines"][line_id] = {
+                "line_load": line.line_load,
+                "frequency": line.frequency,
+                "disruption_level": line.disruption_level,
             }
 
         return observations

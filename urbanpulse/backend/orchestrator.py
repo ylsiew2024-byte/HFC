@@ -1,106 +1,71 @@
 """
 Orchestrator - Single source of truth for simulation control.
 """
-from typing import Dict, Any, List
-from .models import CityState, DistrictState
+from typing import Dict, Any
+from .models import CityState, DistrictState, TrainLineState, TRAIN_LINE_DEFS
 from .env import MobilityEnvironment
 from .kpi import snapshot_metrics, score
 from .agents import (
-    MonitoringAgent,
-    CapacityPlannerAgent,
-    PolicyAgent,
-    CoordinatorAgent,
-    ExecutionAgent,
+    MonitoringAgent, CapacityPlannerAgent, PolicyAgent,
+    CoordinatorAgent, ExecutionAgent,
 )
 
 
 def make_city() -> CityState:
-    """
-    Create initial city state with Singapore-inspired districts.
-    Starts at midnight (Hour 0) with appropriately low activity levels.
-    """
-    # At midnight: transit is winding down, very low loads
+    """Create initial city state at midnight."""
     districts = [
         DistrictState(
-            name="Central",  # CBD/Marina Bay area
-            population=500000,
-            bus_capacity=120,
-            mrt_capacity=40,
-            base_bus_capacity=120,  # Baseline for decay
-            base_mrt_capacity=40,
-            bus_load_factor=0.08,  # Very low at midnight
-            mrt_load_factor=0.06,
-            station_crowding=0.05,
-            road_traffic=0.12,  # Some taxis, night traffic
-            air_quality=85,  # Good air at night
+            name="Central", population=500000,
+            bus_capacity=120, mrt_capacity=40,
+            base_bus_capacity=120, base_mrt_capacity=40,
+            bus_load_factor=0.08, mrt_load_factor=0.06,
+            station_crowding=0.05, road_traffic=0.12, air_quality=85,
         ),
         DistrictState(
-            name="North",  # Woodlands/Yishun area
-            population=350000,
-            bus_capacity=80,
-            mrt_capacity=25,
-            base_bus_capacity=80,
-            base_mrt_capacity=25,
-            bus_load_factor=0.05,
-            mrt_load_factor=0.04,
-            station_crowding=0.03,
-            road_traffic=0.08,
-            air_quality=88,
+            name="North", population=350000,
+            bus_capacity=80, mrt_capacity=25,
+            base_bus_capacity=80, base_mrt_capacity=25,
+            bus_load_factor=0.05, mrt_load_factor=0.04,
+            station_crowding=0.03, road_traffic=0.08, air_quality=88,
         ),
         DistrictState(
-            name="South",  # Harbourfront/Sentosa area
-            population=400000,
-            bus_capacity=90,
-            mrt_capacity=30,
-            base_bus_capacity=90,
-            base_mrt_capacity=30,
-            bus_load_factor=0.07,
-            mrt_load_factor=0.05,
-            station_crowding=0.04,
-            road_traffic=0.10,
-            air_quality=86,
+            name="East", population=380000,
+            bus_capacity=85, mrt_capacity=28,
+            base_bus_capacity=85, base_mrt_capacity=28,
+            bus_load_factor=0.06, mrt_load_factor=0.05,
+            station_crowding=0.04, road_traffic=0.09, air_quality=87,
         ),
         DistrictState(
-            name="East",  # Tampines/Changi area
-            population=380000,
-            bus_capacity=85,
-            mrt_capacity=28,
-            base_bus_capacity=85,
-            base_mrt_capacity=28,
-            bus_load_factor=0.06,
-            mrt_load_factor=0.05,
-            station_crowding=0.04,
-            road_traffic=0.09,
-            air_quality=87,
-        ),
-        DistrictState(
-            name="West",  # Jurong area
-            population=320000,
-            bus_capacity=75,
-            mrt_capacity=22,
-            base_bus_capacity=75,
-            base_mrt_capacity=22,
-            bus_load_factor=0.05,
-            mrt_load_factor=0.04,
-            station_crowding=0.03,
-            road_traffic=0.08,
-            air_quality=86,
+            name="West", population=320000,
+            bus_capacity=75, mrt_capacity=22,
+            base_bus_capacity=75, base_mrt_capacity=22,
+            bus_load_factor=0.05, mrt_load_factor=0.04,
+            station_crowding=0.03, road_traffic=0.08, air_quality=86,
         ),
     ]
 
+    # Create train lines
+    train_lines = {}
+    for line_id, defn in TRAIN_LINE_DEFS.items():
+        train_lines[line_id] = TrainLineState(
+            line_id=line_id,
+            line_name=defn["name"],
+            color=defn["color"],
+            line_load=defn["base_load"],
+            frequency=defn["base_freq"],
+            base_frequency=defn["base_freq"],
+        )
+
     return CityState(
         districts=districts,
-        t=0,
-        bus_budget=40,
-        mrt_budget=12,
-        funds=1000.0,  # Start with $1M
-        action_log=[],
-        history=[],
+        train_lines=train_lines,
+        t=0, hour_of_day=0, day_index=1,
+        action_log=[], history=[],
     )
 
 
 class Orchestrator:
-    """Main orchestration logic for the simulation."""
+    """Main orchestration logic."""
 
     def __init__(self):
         self.env = MobilityEnvironment()
@@ -111,93 +76,54 @@ class Orchestrator:
         self.executor = ExecutionAgent()
 
     def step(self, city: CityState) -> Dict[str, Any]:
-        """
-        Run one full simulation step.
-        Returns payload with current state, metrics, scores, and actions.
-        """
-        # Reset budgets at start of each step
-        city.reset_budgets()
+        """Run one full simulation step."""
+        city.reset_capacities()
 
-        # 1. Observe
         observations = self.monitor.observe(city)
-
-        # 2. Propose (planner generates proposals)
         proposals = self.planner.propose(city, observations)
+        sanitized = self.policy.sanitize(proposals, observations)
+        approved = self.coordinator.allocate(city, sanitized)
+        step_actions = self.executor.execute(city, approved)
 
-        # 3. Policy sanitization
-        sanitized_proposals = self.policy.sanitize(proposals, observations)
-
-        # 4. Coordination allocation
-        approved_proposals = self.coordinator.allocate(city, sanitized_proposals)
-
-        # 5. Execute approved actions
-        step_actions = self.executor.execute(city, approved_proposals)
-
-        # 6. Environment step (advance simulation)
         self.env.step(city)
 
-        # 7. Compute metrics and scores
         metrics = snapshot_metrics(city)
         scores = score(city)
 
-        # Record history snapshot
-        history_entry = {
+        city.history.append({
             "t": city.t,
+            "hour": city.hour_of_day,
+            "day": city.day_index,
             "scores": scores.copy(),
             "metrics": metrics.copy(),
-        }
-        city.history.append(history_entry)
+        })
 
-        # 8. Build return payload
-        payload = {
-            "t": city.t,
-            "scores": scores,
-            "metrics": metrics,
-            "districts": {d.name: d.to_dict() for d in city.districts},
-            "actions": step_actions,
-            "budgets": {
-                "bus_remaining": city.bus_budget,
-                "mrt_remaining": city.mrt_budget,
-            },
-            "economics": {
-                "funds": round(city.funds, 1),
-                "hourly_revenue": round(city.hourly_revenue, 1),
-                "hourly_cost": round(city.hourly_cost, 1),
-                "total_revenue": round(city.total_revenue, 1),
-                "total_costs": round(city.total_costs, 1),
-            },
-            "environment": {
-                "carbon_emissions": round(city.carbon_emissions, 1),
-                "hourly_emissions": round(city.hourly_emissions, 1),
-                "sustainability_score": round(city.sustainability_score, 1),
-            },
-            "active_events": [e.to_dict() for e in city.active_events],
-            "history_tail": city.history[-50:],  # Last 50 snapshots
-        }
-
-        return payload
+        return self._build_payload(city, metrics, scores, step_actions)
 
     def get_state(self, city: CityState) -> Dict[str, Any]:
         """Get current state without stepping."""
         metrics = snapshot_metrics(city)
         scores = score(city)
+        recent_actions = city.action_log[-20:] if city.action_log else []
+        return self._build_payload(city, metrics, scores, recent_actions)
 
+    def _build_payload(self, city: CityState, metrics: dict, scores: dict,
+                       actions: list) -> Dict[str, Any]:
         return {
-            "t": city.t,
+            "time": {
+                "t": city.t,
+                "hour": city.hour_of_day,
+                "day": city.day_index,
+            },
             "scores": scores,
             "metrics": metrics,
+            "weather": city.weather.to_dict(),
             "districts": {d.name: d.to_dict() for d in city.districts},
-            "actions": city.action_log[-20:] if city.action_log else [],
-            "budgets": {
-                "bus_remaining": city.bus_budget,
-                "mrt_remaining": city.mrt_budget,
-            },
-            "economics": {
-                "funds": round(city.funds, 1),
-                "hourly_revenue": round(city.hourly_revenue, 1),
-                "hourly_cost": round(city.hourly_cost, 1),
-                "total_revenue": round(city.total_revenue, 1),
-                "total_costs": round(city.total_costs, 1),
+            "train_lines": {lid: l.to_dict() for lid, l in city.train_lines.items()},
+            "actions": actions,
+            "capacities": {
+                "bus_fleet_remaining": city.bus_fleet_capacity,
+                "train_slots_remaining": city.train_slot_capacity,
             },
             "environment": {
                 "carbon_emissions": round(city.carbon_emissions, 1),

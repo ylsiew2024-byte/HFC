@@ -1,5 +1,5 @@
 """
-FastAPI backend for UrbanPulse.
+FastAPI backend for MetroMind / UrbanPulse.
 """
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,10 +8,9 @@ from .orchestrator import make_city, Orchestrator
 app = FastAPI(
     title="MetroMind API",
     description="Agentic AI for Smart Urban Transit Management",
-    version="1.0.0",
+    version="2.0.0",
 )
 
-# Enable CORS for Live Server (common ports: 5500, 5501, 5502, 3000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -23,14 +22,13 @@ app.add_middleware(
         "http://localhost:5502",
         "http://127.0.0.1:3000",
         "http://localhost:3000",
-        "null",  # For file:// protocol
+        "null",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Global state
 city = make_city()
 orchestrator = Orchestrator()
 
@@ -45,6 +43,31 @@ def get_state():
 def do_step():
     """Advance simulation by one step."""
     return orchestrator.step(city)
+
+
+@app.post("/api/simulate")
+def simulate(hour: int = Query(ge=0, le=23)):
+    """Simulate to the given hour of day.
+    If the city is already past that hour today, advance to that hour tomorrow.
+    Runs multiple steps as needed to reach the target hour.
+    """
+    target_hour = hour
+    current_hour = city.hour_of_day
+
+    if target_hour == current_hour:
+        return orchestrator.step(city)
+
+    if target_hour > current_hour:
+        steps_needed = target_hour - current_hour
+    else:
+        steps_needed = (24 - current_hour) + target_hour
+
+    steps_needed = min(steps_needed, 24)
+
+    result = None
+    for _ in range(steps_needed):
+        result = orchestrator.step(city)
+    return result
 
 
 @app.post("/api/run")
@@ -66,14 +89,14 @@ def reset_city():
 
 @app.get("/")
 def root():
-    """API root endpoint."""
     return {
         "name": "MetroMind API",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "endpoints": [
-            "GET /api/state - Get current state",
-            "POST /api/step - Advance one step",
-            "POST /api/run?n=N - Run N steps",
-            "POST /api/reset - Reset simulation",
+            "GET /api/state",
+            "POST /api/step",
+            "POST /api/simulate?hour=HH",
+            "POST /api/run?n=N",
+            "POST /api/reset",
         ],
     }
