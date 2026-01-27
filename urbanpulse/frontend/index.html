@@ -33,17 +33,20 @@
             <!-- Left Panel: Map -->
             <section class="map-panel">
                 <div class="panel-header">
-                    <h2>Singapore Transit Map</h2>
+                    <div class="map-tabs">
+                        <button class="map-tab active" onclick="switchMap('bus')" id="tab-bus">Bus Network</button>
+                        <button class="map-tab" onclick="switchMap('train')" id="tab-train">Train Network</button>
+                    </div>
                     <div class="time-display">
                         <span class="time-icon" id="time-icon">🌙</span>
-                        <span class="time-text" id="clock-time">12:00 AM</span>
+                        <span class="time-text" id="clock-time">00:00</span>
                         <span class="time-period" id="clock-period">Night</span>
                     </div>
                 </div>
 
-                <!-- Singapore Map SVG - Realistic Shape -->
-                <div class="map-container">
-                    <svg viewBox="0 0 450 280" class="singapore-map" id="sg-map">
+                <!-- Bus Network Map -->
+                <div class="map-container" id="bus-map-container">
+                    <svg viewBox="0 0 450 280" class="singapore-map" id="bus-map">
                         <!-- Background -->
                         <defs>
                             <linearGradient id="water-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -158,7 +161,7 @@
                         <g id="animation-layer"></g>
                     </svg>
 
-                    <!-- Map Legend -->
+                    <!-- Bus Map Legend -->
                     <div class="map-legend">
                         <div class="legend-item">
                             <span class="legend-color good"></span>
@@ -179,6 +182,122 @@
                     </div>
                 </div>
 
+                <!-- Train Network Map (MRT Lines) -->
+                <div class="map-container hidden" id="train-map-container">
+                    <svg viewBox="0 0 450 350" class="singapore-map" id="train-map">
+                        <!-- Background -->
+                        <rect width="450" height="350" fill="#f5f5f5"/>
+
+                        <!-- MRT Lines - Singapore Style Schematic -->
+
+                        <!-- North-South Line (Red) -->
+                        <g class="mrt-line-group" id="ns-line">
+                            <path d="M 225 30 L 225 320" class="mrt-line-thick ns-line" stroke="#D42E12" stroke-width="8" fill="none"/>
+                            <!-- Stations -->
+                            <circle cx="225" cy="50" r="6" fill="white" stroke="#D42E12" stroke-width="3"/>
+                            <circle cx="225" cy="100" r="6" fill="white" stroke="#D42E12" stroke-width="3"/>
+                            <circle cx="225" cy="150" r="6" fill="white" stroke="#D42E12" stroke-width="3"/>
+                            <circle cx="225" cy="200" r="6" fill="white" stroke="#D42E12" stroke-width="3"/>
+                            <circle cx="225" cy="250" r="6" fill="white" stroke="#D42E12" stroke-width="3"/>
+                            <circle cx="225" cy="300" r="6" fill="white" stroke="#D42E12" stroke-width="3"/>
+                            <text x="240" y="55" font-size="10" fill="#333">Woodlands</text>
+                            <text x="240" y="105" font-size="10" fill="#333">Yishun</text>
+                            <text x="240" y="155" font-size="10" fill="#333">Bishan</text>
+                            <text x="240" y="205" font-size="10" fill="#333">City Hall</text>
+                            <text x="240" y="255" font-size="10" fill="#333">Marina Bay</text>
+                            <text x="240" y="305" font-size="10" fill="#333">Jurong East</text>
+                            <text x="10" y="175" font-size="14" font-weight="bold" fill="#D42E12">NS Line</text>
+                        </g>
+
+                        <!-- East-West Line (Green) -->
+                        <g class="mrt-line-group" id="ew-line">
+                            <path d="M 50 200 L 400 200" class="mrt-line-thick ew-line" stroke="#009645" stroke-width="8" fill="none"/>
+                            <!-- Stations -->
+                            <circle cx="80" cy="200" r="6" fill="white" stroke="#009645" stroke-width="3"/>
+                            <circle cx="150" cy="200" r="6" fill="white" stroke="#009645" stroke-width="3"/>
+                            <circle cx="225" cy="200" r="6" fill="white" stroke="#009645" stroke-width="3" class="interchange"/>
+                            <circle cx="300" cy="200" r="6" fill="white" stroke="#009645" stroke-width="3"/>
+                            <circle cx="370" cy="200" r="6" fill="white" stroke="#009645" stroke-width="3"/>
+                            <text x="80" y="220" font-size="10" fill="#333" text-anchor="middle">Tuas Link</text>
+                            <text x="150" y="220" font-size="10" fill="#333" text-anchor="middle">Clementi</text>
+                            <text x="300" y="220" font-size="10" fill="#333" text-anchor="middle">Paya Lebar</text>
+                            <text x="370" y="220" font-size="10" fill="#333" text-anchor="middle">Changi</text>
+                            <text x="225" y="240" font-size="12" font-weight="bold" fill="#009645">EW Line</text>
+                        </g>
+
+                        <!-- Circle Line (Orange/Yellow) -->
+                        <g class="mrt-line-group" id="cc-line">
+                            <ellipse cx="225" cy="175" rx="100" ry="75" class="mrt-line-thick cc-line" stroke="#FA9E0D" stroke-width="8" fill="none"/>
+                            <!-- Key stations -->
+                            <circle cx="225" cy="100" r="6" fill="white" stroke="#FA9E0D" stroke-width="3" class="interchange"/>
+                            <circle cx="325" cy="175" r="6" fill="white" stroke="#FA9E0D" stroke-width="3"/>
+                            <circle cx="225" cy="250" r="6" fill="white" stroke="#FA9E0D" stroke-width="3" class="interchange"/>
+                            <circle cx="125" cy="175" r="6" fill="white" stroke="#FA9E0D" stroke-width="3"/>
+                            <text x="330" y="180" font-size="10" fill="#333">Serangoon</text>
+                            <text x="100" y="180" font-size="10" fill="#333" text-anchor="end">Buona Vista</text>
+                            <text x="380" y="100" font-size="14" font-weight="bold" fill="#FA9E0D">CC Line</text>
+                        </g>
+
+                        <!-- Downtown Line (Blue) -->
+                        <g class="mrt-line-group" id="dt-line">
+                            <path d="M 150 50 Q 200 120 225 175 Q 240 220 280 280" class="mrt-line-thick dt-line" stroke="#005EC4" stroke-width="8" fill="none"/>
+                            <!-- Stations -->
+                            <circle cx="150" cy="50" r="6" fill="white" stroke="#005EC4" stroke-width="3"/>
+                            <circle cx="225" cy="175" r="6" fill="white" stroke="#005EC4" stroke-width="3"/>
+                            <circle cx="280" cy="280" r="6" fill="white" stroke="#005EC4" stroke-width="3"/>
+                            <text x="155" y="55" font-size="10" fill="#333">Bukit Panjang</text>
+                            <text x="285" y="285" font-size="10" fill="#333">Expo</text>
+                            <text x="50" y="50" font-size="14" font-weight="bold" fill="#005EC4">DT Line</text>
+                        </g>
+
+                        <!-- North-East Line (Purple) -->
+                        <g class="mrt-line-group" id="ne-line">
+                            <path d="M 180 60 Q 220 140 240 200 Q 250 240 280 300" class="mrt-line-thick ne-line" stroke="#9900AA" stroke-width="8" fill="none"/>
+                            <!-- Stations -->
+                            <circle cx="180" cy="60" r="6" fill="white" stroke="#9900AA" stroke-width="3"/>
+                            <circle cx="225" cy="150" r="6" fill="white" stroke="#9900AA" stroke-width="3" class="interchange"/>
+                            <circle cx="250" cy="230" r="6" fill="white" stroke="#9900AA" stroke-width="3"/>
+                            <circle cx="280" cy="300" r="6" fill="white" stroke="#9900AA" stroke-width="3"/>
+                            <text x="185" y="65" font-size="10" fill="#333">Punggol</text>
+                            <text x="255" y="235" font-size="10" fill="#333">Outram Park</text>
+                            <text x="380" y="320" font-size="14" font-weight="bold" fill="#9900AA">NE Line</text>
+                        </g>
+
+                        <!-- Legend for interchange stations -->
+                        <g transform="translate(20, 280)">
+                            <circle cx="0" cy="0" r="6" fill="white" stroke="#333" stroke-width="3" class="interchange"/>
+                            <text x="15" y="5" font-size="10" fill="#333">Interchange Station</text>
+                        </g>
+
+                        <!-- Disruption indicators layer -->
+                        <g id="train-disruption-layer"></g>
+                    </svg>
+
+                    <!-- Train Map Legend -->
+                    <div class="map-legend">
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: #D42E12;"></span>
+                            <span>NS Line</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: #009645;"></span>
+                            <span>EW Line</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: #FA9E0D;"></span>
+                            <span>CC Line</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: #005EC4;"></span>
+                            <span>DT Line</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: #9900AA;"></span>
+                            <span>NE Line</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Day Counter -->
                 <div class="day-counter">
                     <span class="day-label">Day</span>
@@ -191,13 +310,15 @@
             <!-- Center Panel: Controls & Metrics -->
             <section class="control-panel">
                 <div class="controls">
+                    <div class="time-selector-group">
+                        <label for="time-selector" class="time-selector-label">Select Time:</label>
+                        <select id="time-selector" class="time-dropdown" onchange="jumpToTime()">
+                            <!-- Options will be populated by JavaScript -->
+                        </select>
+                    </div>
                     <button id="btn-step" onclick="step()" class="btn btn-primary">
                         <span class="btn-icon">▶</span>
                         <span class="btn-text">Next Hour</span>
-                    </button>
-                    <button id="btn-run10" onclick="run10()" class="btn btn-secondary">
-                        <span class="btn-icon">⏩</span>
-                        <span class="btn-text">Skip 10h</span>
                     </button>
                     <button id="btn-reset" onclick="reset()" class="btn btn-danger">
                         <span class="btn-icon">↺</span>
@@ -205,23 +326,13 @@
                     </button>
                 </div>
 
-                <!-- Economic Status -->
+                <!-- Transport Capacity Status -->
                 <div class="budget-display">
-                    <h3>💰 City Treasury</h3>
-                    <div class="treasury-display">
-                        <div class="treasury-main">
-                            <span class="treasury-label">Funds</span>
-                            <span class="treasury-value" id="city-funds">$1,000K</span>
-                        </div>
-                        <div class="treasury-flow">
-                            <span class="flow-item income">+$<span id="hourly-revenue">0</span>/hr</span>
-                            <span class="flow-item expense">-$<span id="hourly-cost">0</span>/hr</span>
-                        </div>
-                    </div>
+                    <h3>🚍 Transport Capacity</h3>
                     <div class="budget-bars">
                         <div class="budget-item">
                             <span class="budget-icon">🚌</span>
-                            <span class="budget-label">Buses</span>
+                            <span class="budget-label">Buses Deployed</span>
                             <div class="budget-bar">
                                 <div class="budget-fill bus-fill" id="bus-budget-bar"></div>
                             </div>
@@ -229,7 +340,7 @@
                         </div>
                         <div class="budget-item">
                             <span class="budget-icon">🚇</span>
-                            <span class="budget-label">Trains</span>
+                            <span class="budget-label">Trains Operating</span>
                             <div class="budget-bar">
                                 <div class="budget-fill mrt-fill" id="mrt-budget-bar"></div>
                             </div>

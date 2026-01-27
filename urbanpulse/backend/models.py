@@ -45,7 +45,8 @@ EVENTS = [
     {"id": "airport_rush", "name": "Changi Airport Rush", "icon": "✈️",
      "districts": ["East"], "demand_mult": 1.5, "duration": 2},
     {"id": "rain_forecast", "name": "Heavy Rain Expected", "icon": "🌧️",
-     "districts": ["all"], "demand_mult": 1.25, "duration": 4},
+     "districts": ["all"], "demand_mult": 1.25, "duration": 4, "type": "weather",
+     "areas": ["Islandwide"], "impact": "Slower bus speeds, higher congestion"},
     {"id": "jurong_event", "name": "Jurong Industrial Event", "icon": "🏭",
      "districts": ["West"], "demand_mult": 1.35, "duration": 2},
     {"id": "weekend_sentosa", "name": "Sentosa Weekend Crowd", "icon": "🏝️",
@@ -53,6 +54,28 @@ EVENTS = [
     {"id": "mrt_maintenance", "name": "MRT Line Maintenance", "icon": "🔧",
      "districts": ["North", "Central"], "demand_mult": 1.2, "duration": 2,
      "reduces_mrt": True},
+
+    # Additional Weather Events
+    {"id": "thunderstorm", "name": "Thunderstorm Warning", "icon": "⛈️", "type": "weather",
+     "districts": ["all"], "areas": ["Islandwide"], "demand_mult": 1.3, "duration": 1,
+     "impact": "Service delays, seek shelter"},
+    {"id": "light_rain", "name": "Light Rain", "icon": "🌦️", "type": "weather",
+     "districts": ["North", "South"], "areas": ["Northern/Southern regions"], "demand_mult": 1.1, "duration": 3,
+     "impact": "Minor delays expected"},
+
+    # Train Disruptions
+    {"id": "ns_line_delay", "name": "NS Line: Service Delay", "icon": "🚨", "type": "train_disruption",
+     "line": "North-South Line", "districts": ["North", "Central"], "demand_mult": 1.4, "duration": 2,
+     "severity": "medium", "description": "Signaling fault causing delays"},
+    {"id": "ew_line_breakdown", "name": "EW Line: Train Breakdown", "icon": "⚠️", "type": "train_disruption",
+     "line": "East-West Line", "districts": ["East", "Central"], "demand_mult": 1.6, "duration": 3,
+     "severity": "high", "description": "Train fault, service disrupted"},
+    {"id": "cc_line_delay", "name": "CC Line: Minor Delay", "icon": "⏰", "type": "train_disruption",
+     "line": "Circle Line", "districts": ["Central"], "demand_mult": 1.2, "duration": 1,
+     "severity": "low", "description": "Platform door issue"},
+    {"id": "dt_line_partial", "name": "DT Line: Partial Closure", "icon": "🚧", "type": "train_disruption",
+     "line": "Downtown Line", "districts": ["Central", "North"], "demand_mult": 1.5, "duration": 4,
+     "severity": "high", "description": "Track maintenance, partial service"},
 ]
 
 
@@ -66,16 +89,34 @@ class ActiveEvent:
     demand_mult: float
     remaining_hours: int
     reduces_mrt: bool = False
+    event_type: str = "regular"  # regular, weather, train_disruption
+    severity: str = None  # low, medium, high (for disruptions)
+    line: str = None  # MRT line name (for train disruptions)
+    description: str = None  # description of disruption
+    areas: List[str] = None  # affected areas (for weather)
+    impact: str = None  # impact description (for weather)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "event_id": self.event_id,
             "name": self.name,
             "icon": self.icon,
             "districts": self.districts,
             "demand_mult": self.demand_mult,
             "remaining_hours": self.remaining_hours,
+            "type": self.event_type,
         }
+        if self.severity:
+            result["severity"] = self.severity
+        if self.line:
+            result["line"] = self.line
+        if self.description:
+            result["description"] = self.description
+        if self.areas:
+            result["areas"] = self.areas
+        if self.impact:
+            result["impact"] = self.impact
+        return result
 
 
 @dataclass
@@ -210,6 +251,12 @@ class CityState:
                 demand_mult=event_data["demand_mult"],
                 remaining_hours=event_data["duration"],
                 reduces_mrt=event_data.get("reduces_mrt", False),
+                event_type=event_data.get("type", "regular"),
+                severity=event_data.get("severity"),
+                line=event_data.get("line"),
+                description=event_data.get("description"),
+                areas=event_data.get("areas"),
+                impact=event_data.get("impact"),
             )
             self.active_events.append(event)
             self.event_log.append({
