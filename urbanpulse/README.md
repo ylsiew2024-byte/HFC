@@ -102,11 +102,16 @@ uvicorn backend.main:app --reload
 The API will be available at `http://127.0.0.1:8000`
 
 ### 3. Open the Frontend
-
+Method 1
 Open `frontend/index.html` using VS Code Live Server (or any static file server).
 
 - In VS Code: Right-click `index.html` → "Open with Live Server"
 - The frontend will connect to the backend API
+OR
+Method 2
+cd urbanpulse/frontend
+python -m http.server 5500
+open:http://localhost:5500
 
 ### 4. Use the Dashboard
 
