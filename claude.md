@@ -77,7 +77,7 @@ A single HTML page that shows:
 
 ## 3) Folder structure (create exactly)
 
-urbanpulse/
+metromind/
 backend/
 main.py
 models.py
