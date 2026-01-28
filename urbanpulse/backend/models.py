@@ -1,6 +1,7 @@
 """
 Data models for MetroMind city simulation.
-Enhanced with budget, emissions, and event systems.
+No monetary system - uses resource capacity constraints only.
+Includes weather, train lines, and district state.
 """
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
@@ -15,44 +16,40 @@ TRAFFIC_BUS_ADD_LIMIT = 0.8
 BUS_MAX_EXTRA = 10
 MRT_MAX_EXTRA = 3
 
-# Cost constants (in thousands $)
-BUS_COST_PER_UNIT = 0.5      # $500 per bus deployment
-MRT_COST_PER_UNIT = 2.0      # $2000 per train deployment
-CROWD_MGMT_COST = 1.0        # $1000 per crowd management action
-NUDGE_COST = 0.2             # $200 per nudge campaign
-HOURLY_REVENUE = 5.0         # $5000 base tax revenue per hour
-
-# Penalty costs per hour
-LIVEABILITY_PENALTY_RATE = 1.0   # $1000 per point below 70
-ENVIRONMENT_PENALTY_RATE = 0.5   # $500 per point below 70
-PENALTY_THRESHOLD = 70
-
-# Emissions (kg CO2 per unit per hour)
-BUS_EMISSIONS = 50           # Diesel bus emissions
-MRT_EMISSIONS = 10           # Electric train (indirect)
-TRAFFIC_EMISSIONS_FACTOR = 100  # Per 10% traffic
-
 # Capacity decay rate (% per hour back to baseline)
 CAPACITY_DECAY_RATE = 0.05
 
+# Emissions (kg CO2 per unit per hour)
+BUS_EMISSIONS = 50
+MRT_EMISSIONS = 10
+TRAFFIC_EMISSIONS_FACTOR = 100
+
+# Weather types
+WEATHER_TYPES = ["Clear", "Light Rain", "Heavy Rain", "Thunderstorm", "Haze"]
+
+# Train line definitions
+TRAIN_LINE_DEFS = {
+    "CCL": {"name": "Circle Line", "color": "#ed8936", "base_freq": 12, "base_load": 0.3},
+    "NEL": {"name": "North East Line", "color": "#9f7aea", "base_freq": 10, "base_load": 0.3},
+    "EWL": {"name": "East West Line", "color": "#48bb78", "base_freq": 14, "base_load": 0.3},
+    "NSL": {"name": "North South Line", "color": "#e53e3e", "base_freq": 14, "base_load": 0.3},
+}
 
 # === Event Types ===
 EVENTS = [
-    {"id": "rush_hour_surge", "name": "Rush Hour Surge", "icon": "🚦",
+    {"id": "rush_hour_surge", "name": "Rush Hour Surge", "icon": "\U0001f6a6",
      "districts": ["Central"], "demand_mult": 1.3, "duration": 2},
-    {"id": "concert_marina", "name": "Concert at Marina Bay", "icon": "🎵",
+    {"id": "concert_marina", "name": "Concert at Marina Bay", "icon": "\U0001f3b5",
      "districts": ["Central", "South"], "demand_mult": 1.4, "duration": 3},
-    {"id": "airport_rush", "name": "Changi Airport Rush", "icon": "✈️",
+    {"id": "airport_rush", "name": "Changi Airport Rush", "icon": "\u2708\ufe0f",
      "districts": ["East"], "demand_mult": 1.5, "duration": 2},
-    {"id": "rain_forecast", "name": "Heavy Rain Expected", "icon": "🌧️",
-     "districts": ["all"], "demand_mult": 1.25, "duration": 4},
-    {"id": "jurong_event", "name": "Jurong Industrial Event", "icon": "🏭",
+    {"id": "jurong_event", "name": "Jurong Industrial Event", "icon": "\U0001f3ed",
      "districts": ["West"], "demand_mult": 1.35, "duration": 2},
-    {"id": "weekend_sentosa", "name": "Sentosa Weekend Crowd", "icon": "🏝️",
+    {"id": "weekend_sentosa", "name": "Sentosa Weekend Crowd", "icon": "\U0001f3dd\ufe0f",
      "districts": ["South"], "demand_mult": 1.4, "duration": 3},
-    {"id": "mrt_maintenance", "name": "MRT Line Maintenance", "icon": "🔧",
+    {"id": "mrt_maintenance", "name": "MRT Line Maintenance", "icon": "\U0001f527",
      "districts": ["North", "Central"], "demand_mult": 1.2, "duration": 2,
-     "reduces_mrt": True},
+     "reduces_mrt": True, "affected_lines": ["NSL"]},
 ]
 
 
@@ -66,6 +63,7 @@ class ActiveEvent:
     demand_mult: float
     remaining_hours: int
     reduces_mrt: bool = False
+    affected_lines: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -75,26 +73,69 @@ class ActiveEvent:
             "districts": self.districts,
             "demand_mult": self.demand_mult,
             "remaining_hours": self.remaining_hours,
+            "affected_lines": self.affected_lines,
+        }
+
+
+@dataclass
+class WeatherState:
+    """Current weather condition."""
+    condition: str = "Clear"
+    intensity: float = 0.0        # 0..1
+    affected_regions: List[str] = field(default_factory=lambda: ["Islandwide"])
+    persistence_hours: int = 0    # hours remaining for this weather
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "condition": self.condition,
+            "intensity": round(self.intensity, 2),
+            "affected_regions": self.affected_regions,
+            "persistence_hours": self.persistence_hours,
+        }
+
+
+@dataclass
+class TrainLineState:
+    """State of a single MRT line."""
+    line_id: str
+    line_name: str
+    color: str
+    line_load: float = 0.3       # 0..1
+    frequency: int = 12          # trains per hour
+    base_frequency: int = 12
+    disruption_level: float = 0.0  # 0..1
+    actions_this_hour: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "line_id": self.line_id,
+            "line_name": self.line_name,
+            "color": self.color,
+            "line_load": round(self.line_load, 3),
+            "frequency": self.frequency,
+            "base_frequency": self.base_frequency,
+            "disruption_level": round(self.disruption_level, 3),
+            "actions_this_hour": self.actions_this_hour,
         }
 
 
 @dataclass
 class DistrictState:
-    """State of a single district."""
+    """State of a single district (bus-focused)."""
     name: str
     population: int
-    bus_capacity: int           # current buses per hour
-    mrt_capacity: int           # current trains per hour
-    base_bus_capacity: int      # baseline capacity (for decay)
-    base_mrt_capacity: int      # baseline capacity (for decay)
-    bus_load_factor: float      # 0-1, ratio of demand to capacity
-    mrt_load_factor: float      # 0-1
-    station_crowding: float     # 0-1, crowding level at stations
-    road_traffic: float         # 0-1, traffic congestion level
-    air_quality: float          # 0-100, higher is better
+    bus_capacity: int
+    mrt_capacity: int
+    base_bus_capacity: int
+    base_mrt_capacity: int
+    bus_load_factor: float
+    mrt_load_factor: float
+    station_crowding: float
+    road_traffic: float
+    air_quality: float
     nudges_active: bool = False
     nudge_timer: int = 0
-    event_demand_mult: float = 1.0  # Multiplier from active events
+    event_demand_mult: float = 1.0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -116,23 +157,26 @@ class DistrictState:
 
 @dataclass
 class CityState:
-    """State of the entire city with economic and environmental tracking."""
+    """State of the entire city. No monetary tracking."""
     districts: List[DistrictState]
-    t: int = 0                              # current time step (hour)
-    bus_budget: int = 40                    # buses available this hour
-    mrt_budget: int = 12                    # trains available this hour
+    train_lines: Dict[str, TrainLineState] = field(default_factory=dict)
+    t: int = 0                              # absolute time step (hours elapsed)
+    hour_of_day: int = 0                    # 0-23
+    day_index: int = 1                      # day number
 
-    # Economic tracking
-    funds: float = 1000.0                   # City funds in thousands ($1M start)
-    total_revenue: float = 0.0             # Cumulative revenue
-    total_costs: float = 0.0               # Cumulative costs
-    hourly_cost: float = 0.0               # Cost this hour
-    hourly_revenue: float = 0.0            # Revenue this hour
+    # Service unit capacity constraints
+    bus_service_units_max: int = 50         # max bus service units available
+    bus_service_units_active: int = 0       # currently deployed bus service units
+    train_service_units_max: int = 20       # max train service units available
+    train_service_units_active: int = 0     # currently deployed train service units
 
     # Environmental tracking
-    carbon_emissions: float = 0.0          # Cumulative CO2 in kg
-    hourly_emissions: float = 0.0          # Emissions this hour
-    sustainability_score: float = 100.0    # Long-term environmental health
+    carbon_emissions: float = 0.0
+    hourly_emissions: float = 0.0
+    sustainability_score: float = 100.0
+
+    # Weather
+    weather: WeatherState = field(default_factory=WeatherState)
 
     # Events
     active_events: List[ActiveEvent] = field(default_factory=list)
@@ -142,65 +186,31 @@ class CityState:
     action_log: List[Dict[str, Any]] = field(default_factory=list)
     history: List[Dict[str, Any]] = field(default_factory=list)
 
-    # Initial values for reset
-    _initial_bus_budget: int = 40
-    _initial_mrt_budget: int = 12
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "t": self.t,
-            "bus_budget": self.bus_budget,
-            "mrt_budget": self.mrt_budget,
-            "funds": round(self.funds, 1),
-            "carbon_emissions": round(self.carbon_emissions, 1),
-            "sustainability_score": round(self.sustainability_score, 1),
-            "districts": [d.to_dict() for d in self.districts],
-        }
-
-    def reset_budgets(self):
-        """Reset budgets at the start of each step."""
-        self.bus_budget = self._initial_bus_budget
-        self.mrt_budget = self._initial_mrt_budget
-
-    def add_funds(self, amount: float, reason: str = ""):
-        """Add funds (revenue)."""
-        self.funds += amount
-        self.total_revenue += amount
-        self.hourly_revenue += amount
-
-    def deduct_funds(self, amount: float, reason: str = "") -> bool:
-        """Deduct funds if available. Returns True if successful."""
-        if self.funds >= amount:
-            self.funds -= amount
-            self.total_costs += amount
-            self.hourly_cost += amount
-            return True
-        return False
+    def reset_capacities(self):
+        """Clear per-hour train line actions at the start of each step."""
+        for line in self.train_lines.values():
+            line.actions_this_hour = []
 
     def add_emissions(self, amount: float):
         """Add carbon emissions."""
         self.carbon_emissions += amount
         self.hourly_emissions += amount
-        # Degrade sustainability based on emissions
         self.sustainability_score = max(0, self.sustainability_score - amount * 0.001)
 
     def trigger_random_event(self) -> Optional[ActiveEvent]:
-        """Potentially trigger a random event. Returns event if triggered."""
-        hour = self.t % 24
+        """Potentially trigger a random event."""
+        hour = self.hour_of_day
 
-        # Events more likely during peak hours
         base_chance = 0.05
         if 7 <= hour <= 9 or 17 <= hour <= 19:
             base_chance = 0.15
         elif 10 <= hour <= 16:
             base_chance = 0.08
 
-        # Don't stack too many events
         if len(self.active_events) >= 2:
             base_chance *= 0.3
 
         if random.random() < base_chance:
-            # Pick a random event
             event_data = random.choice(EVENTS)
             event = ActiveEvent(
                 event_id=event_data["id"],
@@ -210,10 +220,12 @@ class CityState:
                 demand_mult=event_data["demand_mult"],
                 remaining_hours=event_data["duration"],
                 reduces_mrt=event_data.get("reduces_mrt", False),
+                affected_lines=event_data.get("affected_lines", []),
             )
             self.active_events.append(event)
             self.event_log.append({
                 "t": self.t,
+                "hour": self.hour_of_day,
                 "type": "event_start",
                 "event": event.to_dict(),
             })
@@ -232,13 +244,74 @@ class CityState:
                     "type": "event_end",
                     "event_id": event.event_id,
                 })
-
         for event in expired:
             self.active_events.remove(event)
 
-        # Update district demand multipliers based on active events
+        # Update district demand multipliers
         for district in self.districts:
             district.event_demand_mult = 1.0
             for event in self.active_events:
                 if "all" in event.districts or district.name in event.districts:
                     district.event_demand_mult *= event.demand_mult
+
+    def update_weather(self):
+        """Evolve weather with persistence and hour-based transitions."""
+        w = self.weather
+        if w.persistence_hours > 0:
+            w.persistence_hours -= 1
+            return
+
+        # Decide new weather based on hour and randomness
+        hour = self.hour_of_day
+        roll = random.random()
+
+        # Afternoon more likely rain (tropical Singapore pattern)
+        if 14 <= hour <= 18:
+            if roll < 0.15:
+                w.condition = "Heavy Rain"
+                w.intensity = round(random.uniform(0.6, 0.9), 2)
+                w.persistence_hours = random.randint(1, 3)
+                w.affected_regions = random.choice([["Islandwide"], ["East"], ["West", "Central"]])
+            elif roll < 0.35:
+                w.condition = "Light Rain"
+                w.intensity = round(random.uniform(0.2, 0.5), 2)
+                w.persistence_hours = random.randint(1, 2)
+                w.affected_regions = ["Islandwide"]
+            elif roll < 0.40:
+                w.condition = "Thunderstorm"
+                w.intensity = round(random.uniform(0.7, 1.0), 2)
+                w.persistence_hours = random.randint(1, 2)
+                w.affected_regions = ["Islandwide"]
+            else:
+                w.condition = "Clear"
+                w.intensity = 0.0
+                w.persistence_hours = random.randint(1, 4)
+                w.affected_regions = ["Islandwide"]
+        elif 8 <= hour <= 11:
+            # Morning haze possibility
+            if roll < 0.08:
+                w.condition = "Haze"
+                w.intensity = round(random.uniform(0.3, 0.7), 2)
+                w.persistence_hours = random.randint(2, 5)
+                w.affected_regions = ["Islandwide"]
+            elif roll < 0.18:
+                w.condition = "Light Rain"
+                w.intensity = round(random.uniform(0.2, 0.4), 2)
+                w.persistence_hours = random.randint(1, 2)
+                w.affected_regions = ["Islandwide"]
+            else:
+                w.condition = "Clear"
+                w.intensity = 0.0
+                w.persistence_hours = random.randint(2, 4)
+                w.affected_regions = ["Islandwide"]
+        else:
+            if roll < 0.10:
+                w.condition = "Light Rain"
+                w.intensity = round(random.uniform(0.1, 0.3), 2)
+                w.persistence_hours = random.randint(1, 2)
+                w.affected_regions = ["Islandwide"]
+            else:
+                w.condition = "Clear"
+                w.intensity = 0.0
+                w.persistence_hours = random.randint(2, 5)
+                w.affected_regions = ["Islandwide"]
