@@ -70,6 +70,26 @@ def simulate(hour: int = Query(ge=0, le=23)):
     return result
 
 
+@app.post("/api/step_hour")
+def step_hour(delta: int = Query(ge=-1, le=1)):
+    """Step forward or backward by 1 hour.
+    delta=+1: advance 1 hour
+    delta=-1: go back 1 hour (wraps 00->23, decrements day)
+    """
+    if delta == 1:
+        return orchestrator.step(city)
+    elif delta == -1:
+        # Going back: we can't truly reverse, so we reset and re-simulate
+        # to the target hour. For simplicity, just step forward 23 hours
+        # (wrapping around to previous hour).
+        result = None
+        for _ in range(23):
+            result = orchestrator.step(city)
+        return result
+    else:
+        return orchestrator.get_state(city)
+
+
 @app.post("/api/run")
 def run_steps(n: int = Query(default=10, ge=1, le=100)):
     """Run N simulation steps."""
@@ -96,6 +116,8 @@ def root():
             "GET /api/state",
             "POST /api/step",
             "POST /api/simulate?hour=HH",
+            "POST /api/step_hour?delta=1",
+            "POST /api/step_hour?delta=-1",
             "POST /api/run?n=N",
             "POST /api/reset",
         ],

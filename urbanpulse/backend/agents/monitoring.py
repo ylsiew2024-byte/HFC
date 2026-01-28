@@ -1,8 +1,8 @@
 """
 MonitoringAgent - Observes and reports city state.
 """
-from typing import Dict, Any
-from ..models import CityState
+from typing import Dict, Any, List
+from ..models import CityState, BUS_TARGET_LF, MRT_TARGET_LF, CROWDING_CRITICAL
 
 
 class MonitoringAgent:
@@ -12,11 +12,12 @@ class MonitoringAgent:
         observations = {
             "t": city.t,
             "hour": city.hour_of_day,
-            "bus_fleet_available": city.bus_fleet_capacity,
-            "train_slots_available": city.train_slot_capacity,
+            "bus_service_units_active": city.bus_service_units_active,
+            "train_service_units_active": city.train_service_units_active,
             "weather": city.weather.to_dict(),
             "districts": {},
             "train_lines": {},
+            "alerts": self._generate_alerts(city),
         }
 
         for district in city.districts:
@@ -39,3 +40,29 @@ class MonitoringAgent:
             }
 
         return observations
+
+    def _generate_alerts(self, city: CityState) -> List[str]:
+        """Generate human-readable alerts for the current state."""
+        alerts = []
+        for d in city.districts:
+            if d.station_crowding > CROWDING_CRITICAL:
+                alerts.append(f"CRITICAL: {d.name} station crowding at {d.station_crowding*100:.0f}%")
+            elif d.station_crowding > 0.7:
+                alerts.append(f"WARNING: {d.name} station crowding at {d.station_crowding*100:.0f}%")
+            if d.bus_load_factor > BUS_TARGET_LF:
+                alerts.append(f"Bus overload in {d.name}: {d.bus_load_factor*100:.0f}% load")
+            if d.road_traffic > 0.75:
+                alerts.append(f"High traffic in {d.name}: {d.road_traffic*100:.0f}%")
+            if d.air_quality < 60:
+                alerts.append(f"Poor air quality in {d.name}: {d.air_quality:.0f}")
+        for lid, line in city.train_lines.items():
+            if line.line_load > MRT_TARGET_LF:
+                alerts.append(f"{line.line_name} ({lid}) overloaded: {line.line_load*100:.0f}%")
+            if line.disruption_level > 0.2:
+                alerts.append(f"{line.line_name} ({lid}) disruption: {line.disruption_level*100:.0f}%")
+        w = city.weather
+        if w.condition in ("Heavy Rain", "Thunderstorm"):
+            alerts.append(f"Severe weather: {w.condition} ({w.intensity*100:.0f}% intensity)")
+        elif w.condition == "Haze":
+            alerts.append(f"Haze alert: intensity {w.intensity*100:.0f}%")
+        return alerts

@@ -17,10 +17,14 @@ const WEATHER_ICONS = {
     'Haze': '\uD83C\uDF2B\uFE0F',
 };
 
+const NO_SERVICE_HOURS = new Set([1, 2, 3, 4, 5]);
+
 // ========== Init ==========
 document.addEventListener('DOMContentLoaded', () => {
     initChart();
     fetchState();
+    // Auto-trigger simulation when dropdown changes
+    document.getElementById('hour-select').addEventListener('change', () => simulateHour());
 });
 
 function initChart() {
@@ -51,6 +55,8 @@ async function fetchState() {
     try {
         const r = await fetch(`${API_BASE}/api/state`);
         const data = await r.json();
+        // Sync dropdown to actual city hour
+        document.getElementById('hour-select').value = data.time.hour;
         updateUI(data);
     } catch (e) {
         console.error('Fetch state error:', e);
@@ -76,6 +82,43 @@ async function simulateHour() {
     }
 }
 
+async function stepHourPlus() {
+    try {
+        disableControls();
+        await animateAgents();
+        const r = await fetch(`${API_BASE}/api/step_hour?delta=1`, { method: 'POST' });
+        const data = await r.json();
+        // Sync dropdown to new hour
+        document.getElementById('hour-select').value = data.time.hour;
+        if (data.actions && data.actions.length > 0) animateInterventions(data.actions);
+        updateUI(data);
+    } catch (e) {
+        console.error('Step+ error:', e);
+        showError('Failed to step forward');
+    } finally {
+        resetAgents();
+        enableControls();
+    }
+}
+
+async function stepHourMinus() {
+    try {
+        disableControls();
+        await animateAgents();
+        const r = await fetch(`${API_BASE}/api/step_hour?delta=-1`, { method: 'POST' });
+        const data = await r.json();
+        document.getElementById('hour-select').value = data.time.hour;
+        if (data.actions && data.actions.length > 0) animateInterventions(data.actions);
+        updateUI(data);
+    } catch (e) {
+        console.error('Step- error:', e);
+        showError('Failed to step backward');
+    } finally {
+        resetAgents();
+        enableControls();
+    }
+}
+
 async function resetSim() {
     try {
         disableControls();
@@ -85,6 +128,8 @@ async function resetSim() {
         scoreChart.data.datasets[0].data = [];
         scoreChart.data.datasets[1].data = [];
         scoreChart.update();
+        document.getElementById('hour-select').value = 8;
+        document.getElementById('interventions-content').innerHTML = '<div class="no-events">Run a simulation step to see agent interventions</div>';
         updateUI(data);
     } catch (e) {
         console.error('Reset error:', e);
@@ -149,7 +194,6 @@ function animateInterventions(actions) {
                     el.textContent = text;
                     layer.appendChild(el);
                     setTimeout(() => el.remove(), 1500);
-                    // Pulse district
                     const de = document.getElementById(`district-${action.district.toLowerCase()}`);
                     if (de) {
                         const sh = de.querySelector('.district-shape');
@@ -182,6 +226,11 @@ function updateUI(data) {
     document.getElementById('clock-period').textContent = period;
     document.getElementById('time-icon').textContent = icon;
 
+    // No-service banner
+    const noService = data.no_service || NO_SERVICE_HOURS.has(hour);
+    const banner = document.getElementById('no-service-banner');
+    banner.classList.toggle('hidden', !noService);
+
     // Scores
     document.getElementById('header-liveability').textContent = data.scores.liveability_score.toFixed(1);
     document.getElementById('header-environment').textContent = data.scores.environment_score.toFixed(1);
@@ -189,14 +238,25 @@ function updateUI(data) {
     // Weather
     updateWeather(data.weather);
 
-    // Capacities
+    // Service Unit Capacities
     if (data.capacities) {
-        const busR = data.capacities.bus_fleet_remaining;
-        const trainR = data.capacities.train_slots_remaining;
-        document.getElementById('bus-budget-bar').style.width = `${(busR/40)*100}%`;
-        document.getElementById('mrt-budget-bar').style.width = `${(trainR/12)*100}%`;
-        document.getElementById('bus-budget-value').textContent = `${busR}/40`;
-        document.getElementById('mrt-budget-value').textContent = `${trainR}/12`;
+        const busActive = data.capacities.bus_service_units_active;
+        const busMax = data.capacities.bus_service_units_max;
+        const trainActive = data.capacities.train_service_units_active;
+        const trainMax = data.capacities.train_service_units_max;
+        const busPct = busMax > 0 ? (busActive / busMax) * 100 : 0;
+        const trainPct = trainMax > 0 ? (trainActive / trainMax) * 100 : 0;
+
+        const busBar = document.getElementById('bus-budget-bar');
+        busBar.style.width = `${busPct}%`;
+        busBar.className = 'budget-fill bus-fill ' + capacityColor(busPct);
+
+        const trainBar = document.getElementById('mrt-budget-bar');
+        trainBar.style.width = `${trainPct}%`;
+        trainBar.className = 'budget-fill mrt-fill ' + capacityColor(trainPct);
+
+        document.getElementById('bus-budget-value').textContent = `${busActive} / ${busMax} active`;
+        document.getElementById('mrt-budget-value').textContent = `${trainActive} / ${trainMax} active`;
     }
 
     // Environment
@@ -219,14 +279,19 @@ function updateUI(data) {
     airEl.textContent = data.metrics.avg_air.toFixed(1);
     airEl.className = 'metric-value ' + (data.metrics.avg_air >= 80 ? 'good' : data.metrics.avg_air >= 60 ? 'moderate' : data.metrics.avg_air >= 40 ? 'busy' : 'critical');
 
-    // District map
-    updateBusMap(data.districts);
+    // District map (apply no-service greying)
+    updateBusMap(data.districts, noService);
 
     // Train map
-    updateTrainMap(data.train_lines);
+    updateTrainMap(data.train_lines, noService);
 
     // Active Events panel
-    updateActiveEventsPanel(data);
+    updateActiveEventsPanel(data, noService);
+
+    // Live Interventions
+    if (data.agent_trace) {
+        updateInterventionsPanel(data.agent_trace);
+    }
 
     // Chart
     updateChart(data.history_tail);
@@ -247,26 +312,32 @@ function updateWeather(w) {
 }
 
 // ========== Bus Map ==========
-function updateBusMap(districts) {
+function updateBusMap(districts, noService) {
     for (const [name, d] of Object.entries(districts)) {
         const el = document.getElementById(`district-${name.toLowerCase()}`);
         if (!el) continue;
         const shape = el.querySelector('.district-shape');
         const stats = document.getElementById(`${name.toLowerCase()}-stats`);
-        const avg = (d.bus_load_factor + d.mrt_load_factor + d.station_crowding) / 3;
-        shape.classList.remove('load-low', 'load-moderate', 'load-busy', 'load-critical');
-        if (avg > 0.8) shape.classList.add('load-critical');
-        else if (avg > 0.6) shape.classList.add('load-busy');
-        else if (avg > 0.35) shape.classList.add('load-moderate');
-        else shape.classList.add('load-low');
-        stats.textContent = `${(avg*100).toFixed(0)}% load`;
+
+        shape.classList.remove('load-low', 'load-moderate', 'load-busy', 'load-critical', 'no-service-district');
+
+        if (noService) {
+            shape.classList.add('no-service-district');
+            stats.textContent = 'No Service';
+        } else {
+            const avg = (d.bus_load_factor + d.mrt_load_factor + d.station_crowding) / 3;
+            if (avg > 0.8) shape.classList.add('load-critical');
+            else if (avg > 0.6) shape.classList.add('load-busy');
+            else if (avg > 0.35) shape.classList.add('load-moderate');
+            else shape.classList.add('load-low');
+            stats.textContent = `${(avg*100).toFixed(0)}% load`;
+        }
     }
 }
 
 // ========== Train Map ==========
-function updateTrainMap(trainLines) {
+function updateTrainMap(trainLines, noService) {
     if (!trainLines) return;
-    const lineColors = { NSL: '#e53e3e', EWL: '#48bb78', NEL: '#9f7aea', CCL: '#ed8936' };
 
     for (const [id, line] of Object.entries(trainLines)) {
         const lid = id.toLowerCase();
@@ -274,31 +345,152 @@ function updateTrainMap(trainLines) {
         const actionEl = document.getElementById(`${lid}-action`);
         const pathEl = document.getElementById(`${lid}-path`);
 
-        if (infoEl) infoEl.textContent = `Load: ${(line.line_load*100).toFixed(0)}% | Freq: ${line.frequency}/h`;
-        if (actionEl) {
-            const acts = line.actions_this_hour;
-            actionEl.textContent = acts && acts.length > 0 ? acts.join(', ') : 'No actions';
-            actionEl.setAttribute('fill', acts && acts.length > 0 ? '#4fd1c5' : '#718096');
-        }
-
-        // Color intensity based on load
-        if (pathEl) {
-            const load = line.line_load;
-            let opacity = 0.5 + load * 0.5;
-            let width = load > 0.8 ? 10 : load > 0.6 ? 9 : 8;
-            pathEl.setAttribute('opacity', opacity);
-            pathEl.setAttribute('stroke-width', width);
-            if (line.disruption_level > 0.2) {
-                pathEl.setAttribute('stroke-dasharray', '12,4');
-            } else {
-                pathEl.removeAttribute('stroke-dasharray');
+        if (noService) {
+            if (infoEl) infoEl.textContent = 'No Service';
+            if (actionEl) {
+                actionEl.textContent = 'Out of service (01:00-05:00)';
+                actionEl.setAttribute('fill', '#718096');
+            }
+            if (pathEl) {
+                pathEl.setAttribute('opacity', '0.2');
+                pathEl.setAttribute('stroke-width', '4');
+                pathEl.setAttribute('stroke-dasharray', '8,6');
+            }
+        } else {
+            if (infoEl) infoEl.textContent = `Load: ${(line.line_load*100).toFixed(0)}% | Freq: ${line.frequency}/h`;
+            if (actionEl) {
+                const acts = line.actions_this_hour;
+                actionEl.textContent = acts && acts.length > 0 ? acts.join(', ') : 'No actions';
+                actionEl.setAttribute('fill', acts && acts.length > 0 ? '#4fd1c5' : '#718096');
+            }
+            if (pathEl) {
+                const load = line.line_load;
+                let opacity = 0.5 + load * 0.5;
+                let width = load > 0.8 ? 10 : load > 0.6 ? 9 : 8;
+                pathEl.setAttribute('opacity', opacity);
+                pathEl.setAttribute('stroke-width', width);
+                if (line.disruption_level > 0.2) {
+                    pathEl.setAttribute('stroke-dasharray', '12,4');
+                } else {
+                    pathEl.removeAttribute('stroke-dasharray');
+                }
             }
         }
     }
 }
 
+// ========== Live Interventions Panel ==========
+function updateInterventionsPanel(trace) {
+    const container = document.getElementById('interventions-content');
+    const hourStr = String(trace.hour).padStart(2, '0') + ':00';
+    let html = `<div class="intervention-timestamp">${hourStr}</div>`;
+
+    if (trace.no_service) {
+        html += `<div class="intervention-standby">
+            <div class="intervention-banner">Out of Operating Hours (01:00-05:00)</div>
+            <div class="intervention-note">All agents in standby mode. No bus/train service.</div>
+        </div>`;
+    }
+
+    // Monitoring
+    const alerts = trace.monitoring?.alerts || [];
+    html += `<div class="intervention-section">
+        <div class="intervention-agent"><span class="intervention-agent-icon">\uD83D\uDC41\uFE0F</span> Monitor</div>`;
+    if (alerts.length > 0) {
+        html += '<ul class="intervention-list">' + alerts.map(a => `<li>${a}</li>`).join('') + '</ul>';
+    } else {
+        html += '<div class="intervention-quiet">No alerts detected</div>';
+    }
+    html += '</div>';
+
+    // Planner
+    const planner = trace.planner || {};
+    html += `<div class="intervention-section">
+        <div class="intervention-agent"><span class="intervention-agent-icon">\uD83D\uDCCB</span> Planner</div>`;
+    if (planner.note) {
+        html += `<div class="intervention-quiet">${planner.note}</div>`;
+    } else {
+        const reasons = planner.reasoning || [];
+        if (reasons.length > 0) {
+            html += '<ul class="intervention-list reasoning-items">' + reasons.map(r => `<li>${r}</li>`).join('') + '</ul>';
+        } else {
+            html += '<div class="intervention-quiet">No capacity changes needed — demand within targets</div>';
+        }
+    }
+    html += '</div>';
+
+    // Policy
+    const policy = trace.policy || {};
+    html += `<div class="intervention-section">
+        <div class="intervention-agent"><span class="intervention-agent-icon">\u2696\uFE0F</span> Policy</div>`;
+    if (policy.note) {
+        html += `<div class="intervention-quiet">${policy.note}</div>`;
+    } else {
+        const pItems = [...(policy.blocked || []), ...(policy.adjustments || [])];
+        if (pItems.length > 0) {
+            html += '<ul class="intervention-list policy-items">' + pItems.map(i => `<li>${i}</li>`).join('') + '</ul>';
+        } else {
+            html += '<div class="intervention-quiet">All proposals valid</div>';
+        }
+    }
+    html += '</div>';
+
+    // Coordinator
+    const coord = trace.coordinator || {};
+    html += `<div class="intervention-section">
+        <div class="intervention-agent"><span class="intervention-agent-icon">\uD83C\uDFAF</span> Coordinator</div>`;
+    if (coord.note) {
+        html += `<div class="intervention-quiet">${coord.note}</div>`;
+    } else {
+        const allocs = coord.allocations || [];
+        if (allocs.length > 0) {
+            html += '<ul class="intervention-list">' + allocs.map(a => `<li>${a}</li>`).join('') + '</ul>';
+        } else {
+            html += '<div class="intervention-quiet">No allocations needed</div>';
+        }
+        if (coord.remaining_capacity) {
+            const rc = coord.remaining_capacity;
+            html += `<div class="intervention-remaining">Available: ${rc.bus_service_units || 0} bus units, ${rc.train_service_units || 0} train units (after reserve)</div>`;
+        }
+    }
+    html += '</div>';
+
+    // Executor
+    const exec = trace.executor || {};
+    html += `<div class="intervention-section">
+        <div class="intervention-agent"><span class="intervention-agent-icon">\u26A1</span> Executor</div>`;
+    if (exec.note) {
+        html += `<div class="intervention-quiet">${exec.note}</div>`;
+    } else {
+        const applied = exec.applied || [];
+        if (applied.length > 0) {
+            const flat = applied.flat();
+            html += '<ul class="intervention-list exec-items">' + flat.map(a => `<li>${a}</li>`).join('') + '</ul>';
+        } else {
+            html += '<div class="intervention-quiet">No actions executed</div>';
+        }
+    }
+    html += '</div>';
+
+    // Environment
+    const env = trace.env || {};
+    html += `<div class="intervention-section">
+        <div class="intervention-agent"><span class="intervention-agent-icon">\uD83C\uDF0D</span> Environment</div>`;
+    const envItems = [];
+    if (env.events_triggered && env.events_triggered.length > 0) envItems.push(...env.events_triggered.map(e => `Event triggered: ${e}`));
+    if (env.emissions !== undefined) envItems.push(`Emissions this hour: ${env.emissions} kg CO2`);
+    if (envItems.length > 0) {
+        html += '<ul class="intervention-list">' + envItems.map(i => `<li>${i}</li>`).join('') + '</ul>';
+    } else {
+        html += '<div class="intervention-quiet">Normal environment cycle</div>';
+    }
+    html += '</div>';
+
+    container.innerHTML = html;
+}
+
 // ========== Active Events Panel ==========
-function updateActiveEventsPanel(data) {
+function updateActiveEventsPanel(data, noService) {
     // Weather
     const weatherDiv = document.getElementById('events-weather');
     const w = data.weather;
@@ -321,21 +513,25 @@ function updateActiveEventsPanel(data) {
     const trainsDiv = document.getElementById('events-trains');
     if (data.train_lines) {
         let html = '';
-        for (const [id, line] of Object.entries(data.train_lines)) {
-            const loadPct = (line.line_load * 100).toFixed(0);
-            const loadClass = line.line_load > 0.8 ? 'critical' : line.line_load > 0.6 ? 'busy' : line.line_load > 0.4 ? 'moderate' : 'good';
-            const disrupted = line.disruption_level > 0.1;
-            const actions = line.actions_this_hour && line.actions_this_hour.length > 0
-                ? line.actions_this_hour.join(', ') : '';
+        if (noService) {
+            html = '<div class="no-service-event-card">No Service (01:00-05:00)</div>';
+        } else {
+            for (const [id, line] of Object.entries(data.train_lines)) {
+                const loadPct = (line.line_load * 100).toFixed(0);
+                const loadClass = line.line_load > 0.8 ? 'critical' : line.line_load > 0.6 ? 'busy' : line.line_load > 0.4 ? 'moderate' : 'good';
+                const disrupted = line.disruption_level > 0.1;
+                const actions = line.actions_this_hour && line.actions_this_hour.length > 0
+                    ? line.actions_this_hour.join(', ') : '';
 
-            html += `<div class="train-status-row">
-                <span class="train-line-badge" style="background:${line.color}">${id}</span>
-                <span class="train-line-name">${line.line_name}</span>
-                <span class="train-load ${loadClass}">${loadPct}%</span>
-                <span class="train-freq">${line.frequency}/h</span>
-                ${disrupted ? '<span class="train-disruption">\u26A0\uFE0F</span>' : ''}
-                ${actions ? `<span class="train-action-tag">${actions}</span>` : ''}
-            </div>`;
+                html += `<div class="train-status-row">
+                    <span class="train-line-badge" style="background:${line.color}">${id}</span>
+                    <span class="train-line-name">${line.line_name}</span>
+                    <span class="train-load ${loadClass}">${loadPct}%</span>
+                    <span class="train-freq">${line.frequency}/h</span>
+                    ${disrupted ? '<span class="train-disruption">\u26A0\uFE0F</span>' : ''}
+                    ${actions ? `<span class="train-action-tag">${actions}</span>` : ''}
+                </div>`;
+            }
         }
         trainsDiv.innerHTML = html || '<div class="no-events">All lines normal</div>';
     }
@@ -344,14 +540,18 @@ function updateActiveEventsPanel(data) {
     const distDiv = document.getElementById('events-districts');
     if (data.districts) {
         let alerts = '';
-        for (const [name, d] of Object.entries(data.districts)) {
-            const issues = [];
-            if (d.station_crowding > 0.7) issues.push(`Crowding ${(d.station_crowding*100).toFixed(0)}%`);
-            if (d.bus_load_factor > 0.85) issues.push(`Bus ${(d.bus_load_factor*100).toFixed(0)}%`);
-            if (d.road_traffic > 0.7) issues.push(`Traffic ${(d.road_traffic*100).toFixed(0)}%`);
-            if (d.air_quality < 60) issues.push(`Air ${d.air_quality.toFixed(0)}`);
-            if (issues.length > 0) {
-                alerts += `<div class="district-alert"><span class="district-alert-name">${name}</span><span class="district-alert-issues">${issues.join(' | ')}</span></div>`;
+        if (noService) {
+            alerts = '<div class="no-service-event-card">No Service - Stations closed</div>';
+        } else {
+            for (const [name, d] of Object.entries(data.districts)) {
+                const issues = [];
+                if (d.station_crowding > 0.7) issues.push(`Crowding ${(d.station_crowding*100).toFixed(0)}%`);
+                if (d.bus_load_factor > 0.85) issues.push(`Bus ${(d.bus_load_factor*100).toFixed(0)}%`);
+                if (d.road_traffic > 0.7) issues.push(`Traffic ${(d.road_traffic*100).toFixed(0)}%`);
+                if (d.air_quality < 60) issues.push(`Air ${d.air_quality.toFixed(0)}`);
+                if (issues.length > 0) {
+                    alerts += `<div class="district-alert"><span class="district-alert-name">${name}</span><span class="district-alert-issues">${issues.join(' | ')}</span></div>`;
+                }
             }
         }
         distDiv.innerHTML = alerts || '<div class="no-events">All districts nominal</div>';
@@ -390,10 +590,20 @@ function updateChart(history) {
 }
 
 function disableControls() {
-    document.getElementById('btn-simulate').disabled = true;
+    document.getElementById('btn-hour-minus').disabled = true;
+    document.getElementById('btn-hour-plus').disabled = true;
+    document.getElementById('hour-select').disabled = true;
 }
 function enableControls() {
-    document.getElementById('btn-simulate').disabled = false;
+    document.getElementById('btn-hour-minus').disabled = false;
+    document.getElementById('btn-hour-plus').disabled = false;
+    document.getElementById('hour-select').disabled = false;
+}
+
+function capacityColor(pct) {
+    if (pct > 90) return 'cap-red';
+    if (pct > 70) return 'cap-yellow';
+    return 'cap-green';
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }

@@ -164,9 +164,11 @@ class CityState:
     hour_of_day: int = 0                    # 0-23
     day_index: int = 1                      # day number
 
-    # Resource capacity constraints (NOT money)
-    bus_fleet_capacity: int = 40            # extra buses/hour available globally
-    train_slot_capacity: int = 12           # extra trains/hour available globally
+    # Service unit capacity constraints
+    bus_service_units_max: int = 50         # max bus service units available
+    bus_service_units_active: int = 0       # currently deployed bus service units
+    train_service_units_max: int = 20       # max train service units available
+    train_service_units_active: int = 0     # currently deployed train service units
 
     # Environmental tracking
     carbon_emissions: float = 0.0
@@ -184,15 +186,8 @@ class CityState:
     action_log: List[Dict[str, Any]] = field(default_factory=list)
     history: List[Dict[str, Any]] = field(default_factory=list)
 
-    # Initial values for reset
-    _initial_bus_fleet: int = 40
-    _initial_train_slots: int = 12
-
     def reset_capacities(self):
-        """Reset resource capacities at the start of each step."""
-        self.bus_fleet_capacity = self._initial_bus_fleet
-        self.train_slot_capacity = self._initial_train_slots
-        # Clear per-hour train line actions
+        """Clear per-hour train line actions at the start of each step."""
         for line in self.train_lines.values():
             line.actions_this_hour = []
 

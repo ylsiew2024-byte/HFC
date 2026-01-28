@@ -28,6 +28,11 @@
             </div>
         </header>
 
+        <!-- No Service Banner -->
+        <div class="no-service-banner hidden" id="no-service-banner">
+            &#128683; Out of Operating Hours: No Bus/Train Service (01:00 &ndash; 05:00)
+        </div>
+
         <!-- Main Dashboard -->
         <main class="dashboard">
             <!-- Left Panel: Maps -->
@@ -142,13 +147,11 @@
                         <g id="line-NSL" class="train-line-group">
                             <path d="M220,30 L220,80 Q220,100 230,115 L240,130 Q250,145 250,170 L250,240 Q250,265 240,280 L230,295"
                                   fill="none" stroke="#e53e3e" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" class="train-line-path" id="nsl-path"/>
-                            <!-- Stations -->
                             <circle cx="220" cy="30" r="5" fill="#fff" stroke="#e53e3e" stroke-width="2"/>
                             <circle cx="220" cy="80" r="5" fill="#fff" stroke="#e53e3e" stroke-width="2"/>
                             <circle cx="250" cy="170" r="7" fill="#fff" stroke="#e53e3e" stroke-width="2"/>
                             <circle cx="250" cy="240" r="5" fill="#fff" stroke="#e53e3e" stroke-width="2"/>
                             <circle cx="230" cy="295" r="5" fill="#fff" stroke="#e53e3e" stroke-width="2"/>
-                            <!-- Labels -->
                             <text x="205" y="28" fill="#e53e3e" font-size="9" text-anchor="end" font-weight="600">Woodlands</text>
                             <text x="205" y="83" fill="#a0aec0" font-size="8" text-anchor="end">Yishun</text>
                             <text x="235" y="185" fill="#a0aec0" font-size="8" text-anchor="end">Orchard</text>
@@ -254,47 +257,49 @@
 
             <!-- Center Panel: Controls & Metrics -->
             <section class="control-panel">
-                <!-- Hour selector -->
+                <!-- Hour selector with +/- buttons -->
                 <div class="controls">
                     <div class="hour-select-group">
                         <label for="hour-select" class="hour-label-text">Simulate to hour:</label>
-                        <select id="hour-select" class="hour-dropdown">
-                            <option value="0">00:00</option><option value="1">01:00</option>
-                            <option value="2">02:00</option><option value="3">03:00</option>
-                            <option value="4">04:00</option><option value="5">05:00</option>
-                            <option value="6">06:00</option><option value="7">07:00</option>
-                            <option value="8" selected>08:00</option><option value="9">09:00</option>
-                            <option value="10">10:00</option><option value="11">11:00</option>
-                            <option value="12">12:00</option><option value="13">13:00</option>
-                            <option value="14">14:00</option><option value="15">15:00</option>
-                            <option value="16">16:00</option><option value="17">17:00</option>
-                            <option value="18">18:00</option><option value="19">19:00</option>
-                            <option value="20">20:00</option><option value="21">21:00</option>
-                            <option value="22">22:00</option><option value="23">23:00</option>
-                        </select>
+                        <div class="hour-control-row">
+                            <button class="btn btn-hour-step" id="btn-hour-minus" onclick="stepHourMinus()" title="Previous hour">&#8722;</button>
+                            <select id="hour-select" class="hour-dropdown">
+                                <option value="0">00:00</option><option value="1">01:00</option>
+                                <option value="2">02:00</option><option value="3">03:00</option>
+                                <option value="4">04:00</option><option value="5">05:00</option>
+                                <option value="6">06:00</option><option value="7">07:00</option>
+                                <option value="8" selected>08:00</option><option value="9">09:00</option>
+                                <option value="10">10:00</option><option value="11">11:00</option>
+                                <option value="12">12:00</option><option value="13">13:00</option>
+                                <option value="14">14:00</option><option value="15">15:00</option>
+                                <option value="16">16:00</option><option value="17">17:00</option>
+                                <option value="18">18:00</option><option value="19">19:00</option>
+                                <option value="20">20:00</option><option value="21">21:00</option>
+                                <option value="22">22:00</option><option value="23">23:00</option>
+                            </select>
+                            <button class="btn btn-hour-step" id="btn-hour-plus" onclick="stepHourPlus()" title="Next hour">+</button>
+                        </div>
                     </div>
-                    <button id="btn-simulate" onclick="simulateHour()" class="btn btn-primary">
-                        <span class="btn-icon">&#9654;</span>
-                        <span class="btn-text">Simulate</span>
-                    </button>
                     <a href="#" onclick="resetSim(); return false;" class="reset-link" id="btn-reset">Reset</a>
                 </div>
 
-                <!-- Resource Capacity -->
+                <!-- Service Unit Deployment -->
                 <div class="budget-display">
-                    <h3>&#128642; Fleet Capacity</h3>
+                    <h3>&#128642; Service Deployment
+                        <span class="info-tooltip" title="Service units represent operational capacity blocks (route bundles, crew shifts, fleet segments) — not individual vehicles.">&#9432;</span>
+                    </h3>
                     <div class="budget-bars">
                         <div class="budget-item">
                             <span class="budget-icon">&#128652;</span>
-                            <span class="budget-label">Bus Fleet</span>
+                            <span class="budget-label">Bus Service</span>
                             <div class="budget-bar"><div class="budget-fill bus-fill" id="bus-budget-bar"></div></div>
-                            <span class="budget-value" id="bus-budget-value">40/40</span>
+                            <span class="budget-value" id="bus-budget-value">0 / 50 active</span>
                         </div>
                         <div class="budget-item">
                             <span class="budget-icon">&#128647;</span>
-                            <span class="budget-label">Train Slots</span>
+                            <span class="budget-label">Train Service</span>
                             <div class="budget-bar"><div class="budget-fill mrt-fill" id="mrt-budget-bar"></div></div>
-                            <span class="budget-value" id="mrt-budget-value">12/12</span>
+                            <span class="budget-value" id="mrt-budget-value">0 / 20 active</span>
                         </div>
                     </div>
                 </div>
@@ -365,7 +370,7 @@
                 </div>
             </section>
 
-            <!-- Right Panel: Agents & Active Events -->
+            <!-- Right Panel: Agents, Interventions & Active Events -->
             <section class="agent-panel">
                 <!-- Agent Status -->
                 <div class="agent-status">
@@ -396,6 +401,14 @@
                             <div class="agent-info"><span class="agent-name">Executor</span><span class="agent-state" id="executor-state">Idle</span></div>
                             <div class="agent-indicator"></div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Live Interventions Panel -->
+                <div class="interventions-panel">
+                    <h2>&#128269; Live Interventions</h2>
+                    <div id="interventions-content">
+                        <div class="no-events">Run a simulation step to see agent interventions</div>
                     </div>
                 </div>
 

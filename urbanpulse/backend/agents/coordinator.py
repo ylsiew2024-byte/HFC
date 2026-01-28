@@ -10,11 +10,16 @@ class CoordinatorAgent:
 
     def allocate(self, city: CityState, proposals: Dict[str, Any]) -> Dict[str, Any]:
         """Allocate bus_fleet_capacity across districts and train_slot_capacity across lines."""
+        allocations = []
+
+        # Reserve ~20-30% buffer
+        bus_available = max(0, city.bus_service_units_active - round(city.bus_service_units_max * 0.2))
+        train_available = max(0, city.train_service_units_active - round(city.train_service_units_max * 0.2))
 
         # District bus allocation
         sorted_districts = sorted(proposals["district_proposals"],
                                   key=lambda p: p["urgency"], reverse=True)
-        bus_left = city.bus_fleet_capacity
+        bus_left = bus_available
         approved_districts = []
 
         for proposal in sorted_districts:
@@ -25,14 +30,17 @@ class CoordinatorAgent:
                 bus_left -= allocated
                 if allocated == 0:
                     approved["bus_action"] = "NO_CHANGE"
+                    allocations.append(f"{proposal['district']}: requested +{proposal['bus_extra']} units, denied (reserve limit)")
+                elif allocated < proposal["bus_extra"]:
+                    allocations.append(f"{proposal['district']}: requested +{proposal['bus_extra']} units, allocated +{allocated} (partial)")
+                else:
+                    allocations.append(f"{proposal['district']}: allocated +{allocated} bus service units")
             approved_districts.append(approved)
-
-        city.bus_fleet_capacity = bus_left
 
         # Train line allocation
         sorted_trains = sorted(proposals["train_proposals"],
                                key=lambda p: p["urgency"], reverse=True)
-        train_left = city.train_slot_capacity
+        train_left = train_available
         approved_trains = []
 
         for proposal in sorted_trains:
@@ -43,11 +51,21 @@ class CoordinatorAgent:
                 train_left -= allocated
                 if allocated == 0:
                     approved["mrt_action"] = "NO_CHANGE"
+                    allocations.append(f"{proposal['line_id']}: requested +{proposal['mrt_extra']} units, denied (reserve limit)")
+                elif allocated < proposal["mrt_extra"]:
+                    allocations.append(f"{proposal['line_id']}: requested +{proposal['mrt_extra']} units, allocated +{allocated} (partial)")
+                else:
+                    allocations.append(f"{proposal['line_id']}: allocated +{allocated} train service units")
             approved_trains.append(approved)
-
-        city.train_slot_capacity = train_left
 
         return {
             "district_proposals": approved_districts,
             "train_proposals": approved_trains,
+            "_trace": {
+                "allocations": allocations,
+                "remaining_capacity": {
+                    "bus_service_units": bus_left,
+                    "train_service_units": train_left,
+                },
+            },
         }

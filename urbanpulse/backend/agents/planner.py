@@ -13,6 +13,8 @@ class CapacityPlannerAgent:
     def propose(self, city: CityState, observations: Dict[str, Any]) -> Dict[str, Any]:
         """Generate proposals for districts (bus) and train lines separately."""
         district_proposals = []
+        reasoning = []
+
         for district in city.districts:
             obs = observations["districts"][district.name]
             urgency = self._district_urgency(obs)
@@ -25,13 +27,18 @@ class CapacityPlannerAgent:
             if obs["bus_load_factor"] > BUS_TARGET_LF:
                 if obs["road_traffic"] > 0.8:
                     bus_action = "USE_BUS_PRIORITY"
+                    reasoning.append(f"{district.name}: High traffic ({obs['road_traffic']:.0%}) — recommending bus priority lanes")
                 else:
                     bus_action = "ADD_BUSES"
                     overload = obs["bus_load_factor"] - BUS_TARGET_LF
                     bus_extra = min(10, max(1, int(overload * 20)))
+                    reasoning.append(f"{district.name}: Bus load {obs['bus_load_factor']:.0%} exceeds target — requesting +{bus_extra} service units")
+            elif obs["bus_load_factor"] < 0.4:
+                reasoning.append(f"{district.name}: Low bus demand ({obs['bus_load_factor']:.0%}) — scale-down appropriate")
 
             if obs["station_crowding"] > CROWDING_CRITICAL:
                 do_crowd_mgmt = True
+                reasoning.append(f"{district.name}: Station crowding critical ({obs['station_crowding']:.0%}) — crowd management activated")
 
             if obs["station_crowding"] > 0.7 or obs["road_traffic"] > 0.75:
                 if not obs["nudges_active"]:
@@ -57,6 +64,9 @@ class CapacityPlannerAgent:
                 mrt_action = "ADD_TRAINS"
                 overload = line_obs["line_load"] - MRT_TARGET_LF
                 mrt_extra = min(3, max(1, int(overload * 10)))
+                reasoning.append(f"{line_id}: Load {line_obs['line_load']:.0%} exceeds threshold — requesting +{mrt_extra} train service units")
+            elif line_obs["line_load"] < 0.3:
+                reasoning.append(f"{line_id}: Low demand ({line_obs['line_load']:.0%}) — scale-down appropriate")
 
             train_proposals.append({
                 "line_id": line_id,
@@ -68,6 +78,7 @@ class CapacityPlannerAgent:
         return {
             "district_proposals": district_proposals,
             "train_proposals": train_proposals,
+            "reasoning": reasoning,
         }
 
     def _district_urgency(self, obs: Dict[str, Any]) -> float:
