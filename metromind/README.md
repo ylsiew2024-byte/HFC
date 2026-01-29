@@ -1,3 +1,5 @@
+# Contributors (not in any order)
+Koh Qing Jia,  Wong Xuan Yu , Gwee Wei Lin , Anumitaa Murali , Etienne Wong , Siew Yuanlong
 # MetroMind - Agentic Mobility Orchestrator
 
 A multi-agent AI system for autonomous urban transit management in Singapore. MetroMind demonstrates how coordinated AI agents can improve urban liveability and environmental outcomes by dynamically managing buses, trains, and passenger flow across multiple districts in real time.
