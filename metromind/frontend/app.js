@@ -125,7 +125,7 @@ async function resetSim() {
         scoreChart.data.labels = [];
         scoreChart.data.datasets.forEach(ds => ds.data = []);
         scoreChart.update();
-        document.getElementById('hour-select').value = 8;
+        document.getElementById('hour-select').value = 0;
         document.getElementById('interventions-content').innerHTML = '<div class="no-events">Run a simulation step to see agent interventions</div>';
         document.getElementById('forecast-content').innerHTML = '<div class="no-events">Run simulation to see forecasts</div>';
         updateUI(data);

@@ -74,11 +74,28 @@ def make_city() -> CityState:
             base_frequency=defn["base_freq"],
         )
 
+    # Compute initial service units and cost for hour 0
+    initial_scale = HOUR_SCALE.get(0, 0.15)
+    bus_active = round(50 * initial_scale)    # 50 = bus_service_units_max
+    train_active = round(20 * initial_scale)  # 20 = train_service_units_max
+
+    # Initial cost: active units + idle reserve
+    idle_bus = max(0, 50 - bus_active)
+    idle_train = max(0, 20 - train_active)
+    initial_cost = (
+        bus_active * COST_BUS_ACTIVE
+        + train_active * COST_TRAIN_ACTIVE
+        + (idle_bus + idle_train) * COST_RESERVE_IDLE
+    )
+
     return CityState(
         districts=districts,
         train_lines=train_lines,
         t=0, hour_of_day=0, day_index=1,
         action_log=[], history=[],
+        bus_service_units_active=bus_active,
+        train_service_units_active=train_active,
+        cost_this_hour=round(initial_cost, 1),
     )
 
 
