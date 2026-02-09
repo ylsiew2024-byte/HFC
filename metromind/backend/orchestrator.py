@@ -1,10 +1,16 @@
 """
-Orchestrator - Single source of truth for simulation control.
+Orchestrator v2 — Single source of truth for simulation control.
+Integrates demand forecasting, cost tracking, and operator escalations.
 """
 from typing import Dict, Any
-from .models import CityState, DistrictState, TrainLineState, TRAIN_LINE_DEFS
+from .models import (
+    CityState, DistrictState, TrainLineState, TRAIN_LINE_DEFS,
+    COST_BUS_ACTIVE, COST_TRAIN_ACTIVE, COST_RESERVE_IDLE,
+    COST_CROWDING_PENALTY, COST_DELAY_PENALTY, CROWDING_CRITICAL,
+)
 from .env import MobilityEnvironment
 from .kpi import snapshot_metrics, score
+from .forecast import DemandForecaster
 from .agents import (
     MonitoringAgent, CapacityPlannerAgent, PolicyAgent,
     CoordinatorAgent, ExecutionAgent,
@@ -81,7 +87,7 @@ def _is_no_service(hour: int) -> bool:
 
 
 class Orchestrator:
-    """Main orchestration logic."""
+    """Main orchestration logic with forecast and cost integration."""
 
     def __init__(self):
         self.env = MobilityEnvironment()
@@ -90,27 +96,29 @@ class Orchestrator:
         self.policy = PolicyAgent()
         self.coordinator = CoordinatorAgent()
         self.executor = ExecutionAgent()
+        self.forecaster = DemandForecaster()
 
     def step(self, city: CityState) -> Dict[str, Any]:
         """Run one full simulation step."""
         city.reset_capacities()
 
-        # Check the hour BEFORE env.step advances time
         current_hour = city.hour_of_day
         no_service = _is_no_service(current_hour)
 
-        # Compute baseline active service units for this hour
         scale = HOUR_SCALE.get(current_hour, 0.5)
         city.bus_service_units_active = round(city.bus_service_units_max * scale)
         city.train_service_units_active = round(city.train_service_units_max * scale)
 
-        # Apply no-service state
         if no_service:
             city.bus_service_units_active = 0
             city.train_service_units_active = 0
             self._apply_no_service(city)
 
         observations = self.monitor.observe(city)
+
+        # Generate demand forecast for planner (based on current hour before step)
+        forecast_data = self.forecaster.forecast(city)
+
         agent_trace = {
             "hour": current_hour,
             "no_service": no_service,
@@ -118,25 +126,31 @@ class Orchestrator:
         }
 
         if no_service:
-            # Agents in standby - no proposals, no allocation, no execution
-            agent_trace["planner"] = {"bus_proposals": [], "train_proposals": [], "note": "Standby: out of operating hours (01:00-05:00)"}
+            agent_trace["planner"] = {
+                "bus_proposals": [], "train_proposals": [],
+                "note": "Standby: out of operating hours (01:00-05:00)"
+            }
             agent_trace["policy"] = {"adjustments": [], "blocked": [], "note": "Standby"}
-            agent_trace["coordinator"] = {"allocations": [], "remaining_capacity": {"bus_service_units": 0, "train_service_units": 0}, "note": "Standby"}
-            agent_trace["executor"] = {"applied": ["OUT_OF_SERVICE"], "note": "No bus/train service"}
+            agent_trace["coordinator"] = {
+                "allocations": [],
+                "remaining_capacity": {"bus_service_units": 0, "train_service_units": 0},
+                "note": "Standby"
+            }
+            agent_trace["executor"] = {
+                "applied": ["OUT_OF_SERVICE"],
+                "note": "No bus/train service"
+            }
 
-            # Log out-of-service
             oos_event = {
-                "t": city.t,
-                "hour": current_hour,
-                "type": "system",
-                "district": "ALL",
-                "actions": ["OUT_OF_SERVICE"],
-                "urgency": 0,
+                "t": city.t, "hour": current_hour,
+                "type": "system", "district": "ALL",
+                "actions": ["OUT_OF_SERVICE"], "urgency": 0,
             }
             city.action_log.append(oos_event)
             step_actions = [oos_event]
         else:
-            proposals = self.planner.propose(city, observations)
+            # Pass forecast to planner (v2)
+            proposals = self.planner.propose(city, observations, forecast_data)
             agent_trace["planner"] = {
                 "bus_proposals": proposals["district_proposals"],
                 "train_proposals": proposals["train_proposals"],
@@ -156,25 +170,36 @@ class Orchestrator:
                 "applied": [a["actions"] for a in step_actions] if step_actions else ["No actions needed"],
             }
 
-        # Environment always steps (weather, demand, etc.) — this advances hour_of_day
+            # Record escalations from planner
+            escalations = proposals.get("escalations", [])
+            if escalations:
+                agent_trace["escalations"] = escalations
+
+        # Environment always steps — this advances hour_of_day
         env_summary = self.env.step(city)
         agent_trace["env"] = {
             "events_triggered": [e.get("name", str(e)) for e in env_summary.get("events_triggered", [])],
             "emissions": round(env_summary.get("emissions", 0), 1),
+            "cost_this_hour": round(env_summary.get("cost_this_hour", 0), 1),
         }
-        # Update trace hour to match the displayed hour (after env.step)
         agent_trace["hour"] = city.hour_of_day
         agent_trace["no_service"] = _is_no_service(city.hour_of_day)
 
-        # Recompute service units for the NEW hour (for display accuracy)
+        # Recompute service units for the NEW hour
         new_hour = city.hour_of_day
         new_scale = HOUR_SCALE.get(new_hour, 0.5)
         if _is_no_service(new_hour):
             city.bus_service_units_active = 0
             city.train_service_units_active = 0
+            city.cost_this_hour = 0  # no operating cost during no-service hours
         else:
             city.bus_service_units_active = round(city.bus_service_units_max * new_scale)
             city.train_service_units_active = round(city.train_service_units_max * new_scale)
+            # Recalculate cost_this_hour to reflect the NEW hour's service level
+            city.cost_this_hour = self._preview_hourly_cost(city)
+
+        # Regenerate forecast for display (based on NEW hour after step)
+        display_forecast = self.forecaster.forecast(city)
 
         metrics = snapshot_metrics(city)
         scores = score(city)
@@ -189,6 +214,14 @@ class Orchestrator:
 
         payload = self._build_payload(city, metrics, scores, step_actions)
         payload["agent_trace"] = agent_trace
+        # v2: include forecast and cost in payload
+        payload["forecast"] = display_forecast
+        payload["cost"] = {
+            "cost_this_hour": round(city.cost_this_hour, 1),
+            "cost_today": round(city.cost_today, 1),
+            "cost_history": city.cost_history[-24:],
+        }
+        payload["operator_escalations"] = city.operator_escalations[-10:]
         return payload
 
     def get_state(self, city: CityState) -> Dict[str, Any]:
@@ -198,12 +231,34 @@ class Orchestrator:
         recent_actions = city.action_log[-20:] if city.action_log else []
         payload = self._build_payload(city, metrics, scores, recent_actions)
         payload["no_service"] = _is_no_service(city.hour_of_day)
+        payload["cost"] = {
+            "cost_this_hour": round(city.cost_this_hour, 1),
+            "cost_today": round(city.cost_today, 1),
+            "cost_history": city.cost_history[-24:],
+        }
+        payload["operator_escalations"] = city.operator_escalations[-10:]
         return payload
+
+    def _preview_hourly_cost(self, city: CityState) -> float:
+        """Calculate expected cost for the current hour based on active service units."""
+        cost = 0.0
+        cost += city.bus_service_units_active * COST_BUS_ACTIVE
+        cost += city.train_service_units_active * COST_TRAIN_ACTIVE
+        if city.bus_service_units_active > 0:
+            idle_bus = max(0, city.bus_service_units_max - city.bus_service_units_active)
+            idle_train = max(0, city.train_service_units_max - city.train_service_units_active)
+            cost += (idle_bus + idle_train) * COST_RESERVE_IDLE
+        for d in city.districts:
+            if d.station_crowding > CROWDING_CRITICAL:
+                cost += COST_CROWDING_PENALTY
+        for line in city.train_lines.values():
+            if line.disruption_level > 0.3:
+                cost += COST_DELAY_PENALTY
+        return round(cost, 1)
 
     def _apply_no_service(self, city: CityState):
         """Set bus freq and train freq to 0 during no-service hours."""
         for d in city.districts:
-            # Loads decay toward 0
             d.bus_load_factor *= 0.3
             d.mrt_load_factor *= 0.3
             d.station_crowding *= 0.4

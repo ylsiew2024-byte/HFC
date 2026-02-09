@@ -15,7 +15,7 @@
                 <span class="logo-icon">&#128647;</span>
                 <h1>MetroMind</h1>
             </div>
-            <p class="tagline">Multi-Agent Transit Intelligence for Singapore</p>
+            <p class="tagline">Multi-Agent Mobility Orchestrator for Singapore</p>
             <div class="header-stats">
                 <div class="stat-pill liveability-pill">
                     <span class="stat-label">Liveability</span>
@@ -24,6 +24,10 @@
                 <div class="stat-pill environment-pill">
                     <span class="stat-label">Environment</span>
                     <span class="stat-value" id="header-environment">--</span>
+                </div>
+                <div class="stat-pill cost-pill">
+                    <span class="stat-label">Cost Eff.</span>
+                    <span class="stat-value" id="header-cost">--</span>
                 </div>
             </div>
         </header>
@@ -304,6 +308,32 @@
                     </div>
                 </div>
 
+                <!-- Operating Cost (v2) -->
+                <div class="cost-display">
+                    <h3>&#128176; Operating Cost</h3>
+                    <div class="cost-stats">
+                        <div class="cost-item">
+                            <span class="cost-label">This Hour</span>
+                            <span class="cost-value" id="cost-this-hour">0 CU</span>
+                        </div>
+                        <div class="cost-item">
+                            <span class="cost-label">Today Total</span>
+                            <span class="cost-value" id="cost-today">0 CU</span>
+                        </div>
+                    </div>
+                    <div class="cost-breakdown" id="cost-breakdown">
+                        <span class="cost-note">Cost = active units + standby reserve + incident penalties</span>
+                    </div>
+                </div>
+
+                <!-- Demand Forecast (v2) -->
+                <div class="forecast-display">
+                    <h3>&#128200; Demand Forecast (+1-3h)</h3>
+                    <div class="forecast-content" id="forecast-content">
+                        <div class="no-events">Run simulation to see forecasts</div>
+                    </div>
+                </div>
+
                 <!-- Environmental Status -->
                 <div class="environment-display">
                     <h3>&#127757; Environmental Health</h3>
@@ -452,7 +482,7 @@
         <footer class="footer">
             <span>MetroMind</span>
             <span class="separator">&bull;</span>
-            <span>Multi-Agent Transit AI</span>
+            <span>Multi-Agent Mobility Orchestrator v2</span>
             <span class="separator">&bull;</span>
             <span>Singapore 2025</span>
         </footer>

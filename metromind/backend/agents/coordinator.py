@@ -1,5 +1,6 @@
 """
-CoordinatorAgent - Allocates global resource capacities across districts and train lines.
+CoordinatorAgent v2 — Allocates global resource capacities across districts and train lines.
+Cost-aware: tracks standby reserve cost in allocation decisions.
 """
 from typing import Dict, Any, List
 from ..models import CityState
@@ -9,7 +10,7 @@ class CoordinatorAgent:
     """Coordinates resource allocation with limited capacities."""
 
     def allocate(self, city: CityState, proposals: Dict[str, Any]) -> Dict[str, Any]:
-        """Allocate bus_fleet_capacity across districts and train_slot_capacity across lines."""
+        """Allocate bus and train service units across districts and lines."""
         allocations = []
 
         # Reserve ~20-30% buffer
@@ -24,17 +25,25 @@ class CoordinatorAgent:
 
         for proposal in sorted_districts:
             approved = proposal.copy()
-            if proposal["bus_action"] == "ADD_BUSES" and proposal["bus_extra"] > 0:
+            if proposal["bus_action"] == "DEPLOY_RESERVE" and proposal["bus_extra"] > 0:
                 allocated = min(proposal["bus_extra"], bus_left)
                 approved["bus_extra"] = allocated
                 bus_left -= allocated
                 if allocated == 0:
                     approved["bus_action"] = "NO_CHANGE"
-                    allocations.append(f"{proposal['district']}: requested +{proposal['bus_extra']} units, denied (reserve limit)")
+                    allocations.append(
+                        f"{proposal['district']}: requested +{proposal['bus_extra']} units, "
+                        f"denied (reserve limit)"
+                    )
                 elif allocated < proposal["bus_extra"]:
-                    allocations.append(f"{proposal['district']}: requested +{proposal['bus_extra']} units, allocated +{allocated} (partial)")
+                    allocations.append(
+                        f"{proposal['district']}: requested +{proposal['bus_extra']} units, "
+                        f"allocated +{allocated} (partial)"
+                    )
                 else:
-                    allocations.append(f"{proposal['district']}: allocated +{allocated} bus service units")
+                    allocations.append(
+                        f"{proposal['district']}: allocated +{allocated} reserve bus units"
+                    )
             approved_districts.append(approved)
 
         # Train line allocation
@@ -51,12 +60,28 @@ class CoordinatorAgent:
                 train_left -= allocated
                 if allocated == 0:
                     approved["mrt_action"] = "NO_CHANGE"
-                    allocations.append(f"{proposal['line_id']}: requested +{proposal['mrt_extra']} units, denied (reserve limit)")
+                    allocations.append(
+                        f"{proposal['line_id']}: requested +{proposal['mrt_extra']} units, "
+                        f"denied (reserve limit)"
+                    )
                 elif allocated < proposal["mrt_extra"]:
-                    allocations.append(f"{proposal['line_id']}: requested +{proposal['mrt_extra']} units, allocated +{allocated} (partial)")
+                    allocations.append(
+                        f"{proposal['line_id']}: requested +{proposal['mrt_extra']} units, "
+                        f"allocated +{allocated} (partial)"
+                    )
                 else:
-                    allocations.append(f"{proposal['line_id']}: allocated +{allocated} train service units")
+                    allocations.append(
+                        f"{proposal['line_id']}: allocated +{allocated} train service units"
+                    )
             approved_trains.append(approved)
+
+        # Cost note in trace
+        idle_reserve = bus_left + train_left
+        if idle_reserve > 0:
+            allocations.append(
+                f"Reserve buffer: {bus_left} bus + {train_left} train units on standby "
+                f"(standby cost applies)"
+            )
 
         return {
             "district_proposals": approved_districts,

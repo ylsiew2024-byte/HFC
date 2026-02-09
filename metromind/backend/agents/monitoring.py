@@ -1,5 +1,5 @@
 """
-MonitoringAgent - Observes and reports city state.
+MonitoringAgent v2 — Observes and reports city state including cost metrics.
 """
 from typing import Dict, Any, List
 from ..models import CityState, BUS_TARGET_LF, MRT_TARGET_LF, CROWDING_CRITICAL
@@ -15,6 +15,8 @@ class MonitoringAgent:
             "bus_service_units_active": city.bus_service_units_active,
             "train_service_units_active": city.train_service_units_active,
             "weather": city.weather.to_dict(),
+            "cost_this_hour": city.cost_this_hour,
+            "cost_today": round(city.cost_today, 1),
             "districts": {},
             "train_lines": {},
             "alerts": self._generate_alerts(city),
@@ -65,4 +67,14 @@ class MonitoringAgent:
             alerts.append(f"Severe weather: {w.condition} ({w.intensity*100:.0f}% intensity)")
         elif w.condition == "Haze":
             alerts.append(f"Haze alert: intensity {w.intensity*100:.0f}%")
+
+        # Cost alert
+        if city.cost_this_hour > 500:
+            alerts.append(f"High operating cost: {city.cost_this_hour:.0f} CU this hour")
+
+        # Road incident alerts
+        for event in city.active_events:
+            if event.road_incident:
+                alerts.append(f"Road incident active in {', '.join(event.districts)}")
+
         return alerts

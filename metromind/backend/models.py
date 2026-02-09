@@ -1,7 +1,6 @@
 """
-Data models for MetroMind city simulation.
-No monetary system - uses resource capacity constraints only.
-Includes weather, train lines, and district state.
+Data models for MetroMind v2 city simulation.
+Includes cost-aware operations, forecast support, and feasible interventions.
 """
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
@@ -23,6 +22,17 @@ CAPACITY_DECAY_RATE = 0.05
 BUS_EMISSIONS = 50
 MRT_EMISSIONS = 10
 TRAFFIC_EMISSIONS_FACTOR = 100
+
+# === Cost Constants (Cost Units per hour) ===
+COST_BUS_ACTIVE = 8.0          # cost units per active bus service unit per hour
+COST_TRAIN_ACTIVE = 12.0       # cost units per active train service unit per hour
+COST_RESERVE_IDLE = 3.0        # standby cost per idle reserve unit per hour
+COST_CROWDING_PENALTY = 25.0   # penalty per district with crowding > 90%
+COST_DELAY_PENALTY = 15.0      # penalty per train line with disruption > 30%
+COST_ESCALATION_PENALTY = 5.0  # cost per escalation event
+
+# Peak hours (for nudge/advisory policy)
+PEAK_HOURS = {7, 8, 9, 17, 18, 19}
 
 # Weather types
 WEATHER_TYPES = ["Clear", "Light Rain", "Heavy Rain", "Thunderstorm", "Haze"]
@@ -50,6 +60,15 @@ EVENTS = [
     {"id": "mrt_maintenance", "name": "MRT Line Maintenance", "icon": "\U0001f527",
      "districts": ["North", "Central"], "demand_mult": 1.2, "duration": 2,
      "reduces_mrt": True, "affected_lines": ["NSL"]},
+    # v2 new event types — operational pain points
+    {"id": "station_crowd_surge", "name": "Station Crowd Surge", "icon": "\U0001f46f",
+     "districts": ["Central"], "demand_mult": 1.45, "duration": 1},
+    {"id": "train_delay_event", "name": "Train Signal Fault", "icon": "\u26a0\ufe0f",
+     "districts": ["Central", "East"], "demand_mult": 1.25, "duration": 2,
+     "reduces_mrt": True, "affected_lines": ["EWL"]},
+    {"id": "road_incident", "name": "Road Incident (Accident)", "icon": "\U0001f6a8",
+     "districts": ["West"], "demand_mult": 1.15, "duration": 1,
+     "road_incident": True},
 ]
 
 
@@ -64,6 +83,7 @@ class ActiveEvent:
     remaining_hours: int
     reduces_mrt: bool = False
     affected_lines: List[str] = field(default_factory=list)
+    road_incident: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -74,6 +94,7 @@ class ActiveEvent:
             "demand_mult": self.demand_mult,
             "remaining_hours": self.remaining_hours,
             "affected_lines": self.affected_lines,
+            "road_incident": self.road_incident,
         }
 
 
@@ -157,7 +178,7 @@ class DistrictState:
 
 @dataclass
 class CityState:
-    """State of the entire city. No monetary tracking."""
+    """State of the entire city with cost-aware operations."""
     districts: List[DistrictState]
     train_lines: Dict[str, TrainLineState] = field(default_factory=dict)
     t: int = 0                              # absolute time step (hours elapsed)
@@ -174,6 +195,14 @@ class CityState:
     carbon_emissions: float = 0.0
     hourly_emissions: float = 0.0
     sustainability_score: float = 100.0
+
+    # Cost tracking (v2)
+    cost_this_hour: float = 0.0
+    cost_today: float = 0.0
+    cost_history: List[float] = field(default_factory=list)
+
+    # Operator escalations (v2)
+    operator_escalations: List[Dict[str, Any]] = field(default_factory=list)
 
     # Weather
     weather: WeatherState = field(default_factory=WeatherState)
@@ -221,6 +250,7 @@ class CityState:
                 remaining_hours=event_data["duration"],
                 reduces_mrt=event_data.get("reduces_mrt", False),
                 affected_lines=event_data.get("affected_lines", []),
+                road_incident=event_data.get("road_incident", False),
             )
             self.active_events.append(event)
             self.event_log.append({

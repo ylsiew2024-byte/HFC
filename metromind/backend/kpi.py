@@ -1,5 +1,6 @@
 """
-KPI calculations and scoring for the city simulation.
+KPI calculations and scoring for the MetroMind v2 city simulation.
+Includes liveability, environment, and cost efficiency scores.
 """
 from typing import Dict, Any
 from .models import CityState, BUS_TARGET_LF, MRT_TARGET_LF
@@ -24,7 +25,7 @@ def snapshot_metrics(city: CityState) -> Dict[str, float]:
 
 
 def score(city: CityState) -> Dict[str, float]:
-    """Compute liveability and environment scores (0-100, higher is better)."""
+    """Compute liveability, environment, and cost scores (0-100, higher is better)."""
     snap = snapshot_metrics(city)
 
     # Also factor in train line loads
@@ -45,10 +46,22 @@ def score(city: CityState) -> Dict[str, float]:
         0.4 * (100 - snap["avg_air"])
     )
 
+    # Cost efficiency score (v2): lower cost_this_hour = better score
+    # Baseline expectation ~500 CU at peak, ~100 CU off-peak
+    # Score 100 = very efficient, 0 = very expensive
+    cost = city.cost_this_hour
+    if cost <= 0:
+        cost_score = 100.0
+    else:
+        # Normalise: cost of 600+ CU = score 0, cost of 100 CU = score 100
+        cost_score = max(0, min(100, 100 - (cost - 100) * (100 / 500)))
+
     liveability = max(0, min(100, liveability))
     environment = max(0, min(100, environment))
+    cost_score = max(0, min(100, cost_score))
 
     return {
         "liveability_score": round(liveability, 1),
         "environment_score": round(environment, 1),
+        "cost_score": round(cost_score, 1),
     }

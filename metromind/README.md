@@ -1,406 +1,458 @@
 # Contributors (not in any order)
 Koh Qing Jia,  Wong Xuan Yu , Gwee Wei Lin , Anumitaa Murali , Etienne Wong , Siew Yuanlong
-# MetroMind - Agentic Mobility Orchestrator
 
-A multi-agent AI system for autonomous urban transit management in Singapore. MetroMind demonstrates how coordinated AI agents can improve urban liveability and environmental outcomes by dynamically managing buses, trains, and passenger flow across multiple districts in real time.
+# MetroMind — Multi-Agent Mobility Orchestrator for Singapore
+
+> **Five AI agents. One city. Real-time transit orchestration that balances service quality, operating cost, and sustainability — with demand forecasting, cost-aware dispatch, and human-in-the-loop escalation.**
+
+MetroMind is an **agentic AI system** that autonomously manages Singapore's bus and MRT networks across 4 districts and 4 train lines. It simulates a realistic 24-hour transit cycle where coordinated agents must make **genuine trade-offs** — deploying limited resources under uncertainty, responding to weather and events, and knowing when to escalate to human operators.
+
+---
+
+## What Makes MetroMind Different
+
+| Challenge | How MetroMind Solves It |
+|-----------|------------------------|
+| Transit operators **react** to overcrowding after it happens | **Demand forecasting** (1-3h lookahead) enables proactive reserve deployment |
+| Deploying maximum capacity "just in case" is wasteful | **Cost-aware dispatch** tracks per-hour operating costs and optimises the liveability-cost tradeoff |
+| AI recommends infrastructure changes operators can't execute in real-time | Every intervention is **operationally feasible** — short turns, headway holds, reserve deployment — used by SBS Transit/SMRT daily |
+| Fully autonomous systems don't know their limits | **Human-in-the-loop escalation** for severe disruptions the AI shouldn't handle alone |
+| Single-agent systems can't coordinate across competing districts | **Five specialised agents** with checks, balances, and urgency-based resource allocation |
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [The Problem Being Solved](#the-problem-being-solved)
-3. [Multi-Agent Architecture](#multi-agent-architecture)
-4. [Agent Pipeline (Per Simulation Step)](#agent-pipeline-per-simulation-step)
-5. [Detailed Agent Functions](#detailed-agent-functions)
-6. [Dynamic Service Unit System](#dynamic-service-unit-system)
-7. [Active Events System](#active-events-system)
-8. [Weather System](#weather-system)
-9. [Out-of-Service Hours](#out-of-service-hours)
-10. [Key Metrics and Scoring](#key-metrics-and-scoring)
-11. [Districts](#districts)
-12. [Train Lines](#train-lines)
+1. [The Problem](#the-problem-service-planning-under-uncertainty)
+2. [System Overview](#system-overview)
+3. [Demo Walkthrough](#demo-walkthrough-a-day-in-singapores-transit)
+4. [Multi-Agent Architecture](#multi-agent-architecture)
+5. [Key Innovation 1: Forecast-Driven Planning](#key-innovation-1-forecast-driven-planning)
+6. [Key Innovation 2: Cost-Aware Dispatch](#key-innovation-2-cost-aware-dispatch)
+7. [Key Innovation 3: Feasible Interventions Only](#key-innovation-3-feasible-interventions-only)
+8. [Key Innovation 4: Human-in-the-Loop Escalation](#key-innovation-4-human-in-the-loop-escalation)
+9. [Detailed Agent Functions](#detailed-agent-functions)
+10. [Simulation Environment](#simulation-environment)
+11. [Scoring and KPIs](#scoring-and-kpis)
+12. [Limitations and Future Work](#limitations-and-future-work)
 13. [Why This is Agentic AI](#why-this-is-agentic-ai)
 14. [Quick Start](#quick-start)
-15. [API Endpoints](#api-endpoints)
+15. [API Reference](#api-reference)
 16. [Project Structure](#project-structure)
 
 ---
 
-## Overview
+## The Problem: Service Planning Under Uncertainty
 
-MetroMind simulates a **smart city's public transit system** where five specialised AI agents autonomously manage bus and train services across four districts (Central, North, East, West) and four MRT lines (NSL, EWL, NEL, CCL). Each simulation step represents **1 hour of city operation**, running a full 24-hour cycle with realistic demand patterns, weather effects, random city events, and resource constraints.
+Every day, Singapore's Land Transport Authority (LTA) faces a fundamental tension:
 
-The system uses a **service unit abstraction** where operational capacity is measured in service units (representing route bundles, crew shifts, and fleet segments) rather than individual vehicles, providing a realistic model of how transit authorities manage capacity at scale.
+> **Deploy too many buses and trains** → waste fuel, crew hours, and operating budget
+> **Deploy too few** → overcrowded stations, frustrated commuters, cascading delays
+
+This tension is amplified by **uncertainty**. A thunderstorm at 5pm can spike MRT demand 15% in minutes. A concert at Marina Bay floods the Central district for 3 hours. A signal fault on the East-West Line displaces thousands onto buses and roads.
+
+**Today's approach is largely reactive**: operators monitor dashboards, notice crowding, and scramble to deploy reserves. By the time extra buses arrive, the peak may have already passed — or worsened.
+
+### What MetroMind Demonstrates
+
+MetroMind shows how a **multi-agent AI system** could transform this from reactive firefighting to **proactive orchestration**:
+
+1. **Forecast** demand 1-3 hours ahead using observed trends + base demand curves
+2. **Plan** resource allocation based on both current conditions AND predicted future
+3. **Validate** proposals against safety constraints and operational feasibility
+4. **Allocate** limited resources across competing districts by urgency
+5. **Execute** feasible interventions (reserve deployment, short turns, headway holds)
+6. **Escalate** to human operators when the situation exceeds AI capability
+
+All while tracking **operating costs** so the system doesn't just maximise service — it does so efficiently.
 
 ---
 
-## The Problem Being Solved
+## System Overview
 
-Cities face complex, interconnected mobility challenges that cannot be solved by simple rules:
+MetroMind simulates Singapore's public transit as a **realistic 24-hour cycle**:
 
-- **Rush hour overload**: Morning (8am) and evening (6pm) peaks overwhelm transit capacity, with demand reaching 80% of maximum.
-- **Limited resources**: Only 50 bus service units and 20 train service units are available system-wide — not every district can be served at full capacity simultaneously.
-- **Competing priorities**: All districts need resources, but the system must make trade-offs. A surge in Central means fewer resources for East.
-- **Cascading effects**: Poor transit service leads to more private car usage, which increases road traffic, which degrades air quality, which lowers the overall liveability score.
-- **Dynamic conditions**: Weather events, concerts, airport rushes, and MRT maintenance create unpredictable demand spikes that agents must respond to in real time.
+- **4 districts**: Central (CBD, 500K pop), North (350K), East (380K, Changi Airport), West (320K, Jurong Industrial)
+- **4 MRT lines**: North-South (NSL), East-West (EWL), North-East (NEL), Circle (CCL)
+- **Service units**: 50 bus + 20 train capacity blocks (not individual vehicles — representing route bundles, crew shifts, and fleet segments)
+- **Dynamic scaling**: 85% deployment at morning/evening peaks, 0% during 1-5am shutdown
+- **Stochastic events**: Weather changes, concerts, airport rushes, signal faults, road accidents
+- **Triple KPIs**: Liveability (0-100), Environment (0-100), Cost Efficiency (0-100)
+
+Each simulation step = 1 hour. The dashboard shows real-time agent decisions, forecast predictions, cost tracking, and intervention logs.
+
+---
+
+## Demo Walkthrough: A Day in Singapore's Transit
+
+Here's what happens when you run MetroMind through a typical day:
+
+### 6:00 AM — Early Morning Ramp-Up
+- Service units deploy at 40% capacity (20 bus, 8 train)
+- Forecast predicts 85%+ load by 8am → **planner pre-positions reserves**
+- Cost: ~220 CU/hour (low — efficient early morning)
+- Planner reasoning: *"Central: forecast predicts 87% bus load in +2h — proactive reserve deployment"*
+
+### 8:00 AM — Morning Peak
+- 85% deployment (42 bus, 17 train units active)
+- Demand surges across all districts, especially Central
+- Agents deploy reserves, activate crowd management, hold headways
+- **Policy blocks travel advisories** during peak: *"Blocked — passengers have no alternative during rush hour"*
+- Cost: ~490 CU/hour (high but justified — avoids 25 CU crowding penalties per district)
+
+### 2:00 PM — Afternoon + Thunderstorm
+- Heavy rain triggers demand spike (+12% traffic, +8% station crowding)
+- Forecast adjusts predictions upward by 15% for weather
+- Agents deploy additional reserves proactively
+- If MRT disruption occurs → **ESCALATE_TO_OPERATOR** triggered
+
+### 6:00 PM — Evening Peak + Concert at Marina Bay
+- Double pressure: commuter rush + event crowd in Central
+- Coordinator faces genuine trade-off: Central demands +8 bus units, East needs +5, only 12 available after reserve
+- **Central gets priority** (urgency 3.5) → East gets partial allocation (urgency 1.5)
+- Cost peaks at ~550 CU/hour → cost efficiency score drops
+
+### 10:00 PM — Wind-Down
+- Demand eases. Forecast confirms low loads for next 3 hours
+- Planner: *"Low demand (18%), forecast confirms easing — holding reserve to reduce cost"*
+- Service units scale down to 25%
+- Cost drops to ~150 CU/hour → cost efficiency recovers
+
+### 1:00 AM — No Service
+- All units go offline. Agents enter standby mode.
+- Operating cost: **0 CU** (no active service)
+- Dashboard shows red banner: "Out of Operating Hours"
 
 ---
 
 ## Multi-Agent Architecture
 
-MetroMind employs a **sequential pipeline** of five specialised agents, each with a distinct responsibility. This separation of concerns ensures that no single agent has unchecked power — proposals must pass through validation, budget allocation, and execution before taking effect.
+MetroMind uses a **sequential pipeline** of five specialised agents. No single agent has unchecked authority — proposals must survive validation, budget allocation, and execution.
 
 ```
-MonitoringAgent -> CapacityPlannerAgent -> PolicyAgent -> CoordinatorAgent -> ExecutionAgent
-     |                    |                   |                |                 |
-  Observes           Proposes            Validates         Allocates          Applies
-  city state         actions             constraints       resources          changes
+                    ┌─────────────┐
+                    │  Forecaster │  Predicts demand 1-3h ahead
+                    └──────┬──────┘
+                           ▼
+┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐    ┌─────────────┐
+│   Monitor   │───▶│   Planner    │───▶│   Policy     │───▶│ Coordinator  │───▶│  Executor   │
+│             │    │              │    │              │    │              │    │             │
+│ Observes    │    │ Proposes     │    │ Validates    │    │ Allocates    │    │ Applies     │
+│ city state  │    │ actions +    │    │ safety +     │    │ scarce       │    │ changes +   │
+│ + alerts    │    │ reasoning    │    │ feasibility  │    │ resources    │    │ escalates   │
+└─────────────┘    └──────────────┘    └─────────────┘    └──────────────┘    └─────────────┘
 ```
 
-After all agents have acted, the **MobilityEnvironment** advances the simulation: updating demand waves, processing weather changes, triggering random events, computing emissions, and advancing the clock.
+After agents act, the **MobilityEnvironment** advances the simulation: demand waves, weather, events, emissions, operating costs, and clock.
 
 ---
 
-## Agent Pipeline (Per Simulation Step)
+## Key Innovation 1: Forecast-Driven Planning
 
-Each simulation step executes the following sequence:
+### The Problem with Reactive Dispatch
 
-1. **Reset** — Per-hour train line action logs are cleared.
-2. **Scale** — Service units are dynamically scaled to match the current hour's demand profile (e.g., 85% deployment at 8am peak, 15% at midnight).
-3. **Observe** — MonitoringAgent reads all city metrics and generates alerts.
-4. **Propose** — CapacityPlannerAgent generates per-district bus proposals and per-line train proposals, each with an urgency score and human-readable reasoning.
-5. **Validate** — PolicyAgent enforces safety constraints, blocking or adjusting proposals that violate rules.
-6. **Allocate** — CoordinatorAgent distributes limited resources across districts and train lines by urgency, maintaining a ~20% reserve buffer.
-7. **Execute** — ExecutionAgent applies approved actions to the city state and logs all interventions.
-8. **Environment Step** — Demand waves update, weather evolves, events trigger/expire, emissions are computed, and the clock advances by 1 hour.
-9. **Score** — Liveability and Environment KPIs are recalculated based on the new state.
+Without forecasting, agents can only respond **after** overcrowding occurs. By the time reserve buses are deployed, the surge may have passed — or worsened during the delay.
+
+### How MetroMind Forecasts
+
+The **DemandForecaster** uses exponential moving average (EMA) blended with base demand curves:
+
+```
+forecast[+h] = 0.3 * observed_trend + 0.7 * base_demand_curve[hour + h]
+```
+
+**Adjustments**:
+- Weather boost: Heavy rain / thunderstorms increase predicted demand up to 15%
+- Event multiplier: Active events (concerts, airport rushes) multiply the forecast
+- Confidence bounds: Each prediction includes ±10-15% bands
+
+### What This Enables
+
+| Scenario | Without Forecast | With Forecast |
+|----------|-----------------|---------------|
+| Morning rush in 2 hours | Wait, react to overcrowding | Pre-position reserves now |
+| Event ending soon | Keep extra capacity running | Hold reserves — demand about to ease, save cost |
+| Thunderstorm starting | Scramble when demand spikes | Forecast already includes weather boost |
+| Off-peak lull | Over-deploy "just in case" | Scale down to reduce cost |
+
+### Forecast Alerts
+
+When predicted load exceeds thresholds, the forecaster generates alerts visible in the planner trace and dashboard:
+- *"Central bus demand forecast: 91% in +2h"*
+- *"NSL load forecast: 84% in +1h"*
+
+---
+
+## Key Innovation 2: Cost-Aware Dispatch
+
+### Why Cost Matters
+
+Real transit authorities operate under budgets. Deploying every available bus at all times would maximise service but bankrupt the operator. MetroMind tracks **operating costs in Cost Units (CU) per hour**:
+
+| Cost Component | Rate | When It Applies |
+|---------------|------|-----------------|
+| Active bus service unit | 8 CU/hour | Every deployed bus unit |
+| Active train service unit | 12 CU/hour | Every deployed train unit |
+| Idle reserve standby | 3 CU/unit/hour | Units available but not deployed (during operating hours) |
+| Crowding penalty | 25 CU/district | Station crowding exceeds 90% (safety/brand cost) |
+| Delay penalty | 15 CU/line | Train line disruption > 30% |
+| Escalation penalty | 5 CU/event | Human operator intervention required |
+
+### How Cost Influences Decisions
+
+The planner and coordinator use cost signals:
+
+- **Forecast confirms easing demand** → hold reserves instead of deploying → saves 8-12 CU/unit
+- **Forecast predicts surge** → deploy proactively → avoids 25 CU crowding penalties that exceed unit costs
+- **Multiple districts competing** → allocate to highest-urgency first → minimises total penalty
+- **Low-demand hours** → fewer units deployed → lower cost → higher cost efficiency score
+
+### Cost Efficiency Scoring
+
+```
+Cost Efficiency = max(0, 100 - (hourly_cost - 100) / 5)
+```
+
+| Hourly Cost | Score | Interpretation |
+|-------------|-------|----------------|
+| 100 CU | 100 | Efficient off-peak operation |
+| 350 CU | 50 | Moderate peak deployment |
+| 600+ CU | 0 | Over-deployed or penalty-heavy |
+
+---
+
+## Key Innovation 3: Feasible Interventions Only
+
+Every intervention MetroMind recommends is something a Singapore transit operator **can actually execute in real-time**:
+
+| Intervention | Type | Real-World Basis |
+|-------------|------|-----------------|
+| **DEPLOY_RESERVE** | Bus | Activate standby buses + crew from depot — done daily by SBS Transit |
+| **SHORT_TURN** | Bus | Cut route short to boost frequency on congested segment — standard SMRT practice |
+| **HOLD_AT_TERMINAL** | Bus | Hold buses at termini to regulate headway, reduce bunching |
+| **REROUTE_AROUND_INCIDENT** | Bus | Divert buses around road accident — standard operations |
+| **ADD_TRAINS** | Train | Run additional train sets from depot during peak |
+| **HOLD_HEADWAY** | Train | Hold trains at stations for even spacing — used on MRT daily |
+| **TRAVEL_ADVISORY** | Demand | App notification for off-peak travel — **only during off-peak hours** |
+| **CROWD_MGMT** | Station | Barrier management, crowd announcements, flow control |
+| **ESCALATE_TO_OPERATOR** | Human | Alert human operator for manual judgement |
+
+### What We Removed (and Why)
+
+- ~~**Dedicated bus lanes**~~ — requires months of urban planning and infrastructure changes. Not a real-time dispatch lever.
+- ~~**Peak-hour nudges**~~ — telling commuters "travel off-peak" at 8am when they're heading to work is not actionable. Advisory now **blocked during 7-9am and 5-7pm** by the PolicyAgent.
+
+---
+
+## Key Innovation 4: Human-in-the-Loop Escalation
+
+Fully autonomous systems should **know their limits**. MetroMind includes an explicit escalation path:
+
+### When Escalation Triggers
+
+- Station crowding > 95% **AND** bus load > 95% (district-level crisis)
+- Train line disruption > 50% (severe service breakdown)
+
+### What Happens
+
+1. System records an **escalation event** with reason, target, and timestamp
+2. Dashboard displays escalation prominently in the interventions panel
+3. A **cost penalty** (5 CU) is applied to reflect operational overhead
+4. The planner's reasoning trace explains why it escalated
+
+### Why This Matters
+
+Severe multi-modal disruptions — MRT signal fault during a thunderstorm at rush hour — may require human judgement: coordinating with emergency services, making policy decisions, or managing public communications. MetroMind is designed as an **AI assistant to human operators**, not a replacement.
 
 ---
 
 ## Detailed Agent Functions
 
-### 1. MonitoringAgent (`agents/monitoring.py`)
+### 1. MonitoringAgent — The Eyes and Ears
 
-**Role**: The system's eyes and ears. Observes the entire city state and produces a structured observation report consumed by all downstream agents.
+Observes the full city state every hour:
+- Per-district: bus load, MRT load, station crowding, road traffic, air quality
+- Per-train-line: load, frequency, disruption level
+- System-wide: weather, operating cost, active events
 
-**What it observes per district**:
-- `bus_load_factor` — fraction of bus capacity in use (0.0-1.0)
-- `mrt_load_factor` — fraction of MRT capacity in use (0.0-1.0)
-- `station_crowding` — how crowded stations are (0.0-1.0, critical above 0.9)
-- `road_traffic` — road congestion level (0.0-1.0)
-- `air_quality` — air quality index (0-100, lower is worse)
-- `nudges_active` — whether demand-reduction nudges are currently active
+Generates human-readable alerts (e.g., *"CRITICAL: Central station crowding at 94%"*, *"High operating cost: 523 CU this hour"*, *"Road incident active in West"*).
 
-**What it observes per train line**:
-- `line_load` — current load on the line (0.0-1.0)
-- `frequency` — trains per hour
-- `disruption_level` — level of service disruption (0.0-1.0)
+### 2. CapacityPlannerAgent — The Strategic Thinker
 
-**Alert generation**: The MonitoringAgent also generates human-readable alerts:
-- `CRITICAL` alert when station crowding exceeds 90%
-- `WARNING` alert when station crowding exceeds 70%
-- Bus overload alerts when load factor exceeds 85% target
-- High traffic alerts when road traffic exceeds 75%
-- Poor air quality alerts when AQI drops below 60
-- Train line overload alerts when line load exceeds 80% target
-- Severe weather alerts for heavy rain, thunderstorms, and haze
+Analyses observations **and demand forecasts** to produce per-district bus proposals and per-line train proposals. Each proposal carries:
+- **Action**: what to do (DEPLOY_RESERVE, SHORT_TURN, etc.)
+- **Urgency score**: priority for resource allocation (+2.0 for critical crowding, +1.0 for overload, +0.5 for traffic/air quality)
+- **Reasoning**: human-readable explanation of the decision
 
----
+Forecast-aware behaviour:
+- Forecast predicts high load → proactive deployment even if current load is fine
+- Forecast confirms easing demand → holds reserves to reduce cost
 
-### 2. CapacityPlannerAgent (`agents/planner.py`)
+### 3. PolicyAgent — The Safety Regulator
 
-**Role**: The strategic thinker. Analyses observations and generates concrete action proposals for each district and train line, along with urgency scores and reasoning.
+Validates all proposals against hard constraints:
 
-**District proposals** — for each of the 4 districts, the planner decides:
+| Rule | What It Does |
+|------|-------------|
+| Traffic limit | Blocks DEPLOY_RESERVE when roads are gridlocked (>80%) → converts to SHORT_TURN |
+| Bus cap | Clamps bus additions to max 10 per district per hour |
+| Train cap | Clamps train additions to max 3 per line per hour |
+| Crowding gate | Removes CROWD_MGMT if crowding < 90% |
+| **Peak advisory block** | **Blocks travel advisories during peak hours (7-9am, 5-7pm)** — passengers have no alternative |
+| Advisory gate | Removes advisory if crowding < 70% AND traffic < 75% |
 
-| Action | Condition | Effect |
-|--------|-----------|--------|
-| `ADD_BUSES` | Bus load > 85% AND road traffic <= 80% | Requests additional bus service units (1-10 based on overload severity) |
-| `USE_BUS_PRIORITY` | Bus load > 85% AND road traffic > 80% | Recommends dedicated bus lanes instead of adding vehicles to congested roads |
-| `CROWD_MGMT` | Station crowding > 90% (critical) | Activates crowd management protocols at stations |
-| `NUDGE` | Crowding > 70% OR traffic > 75% (and nudges not already active) | Sends app notifications to passengers encouraging off-peak travel |
-| `NO_CHANGE` | All metrics within targets | No intervention needed |
+### 4. CoordinatorAgent — The Resource Allocator
 
-**Train line proposals** — for each of the 4 MRT lines:
+The core of MetroMind's multi-agent coordination. Takes validated proposals from all districts and allocates **limited global resources**:
 
-| Action | Condition | Effect |
-|--------|-----------|--------|
-| `ADD_TRAINS` | Line load > 80% | Requests additional train service units (1-3 based on overload severity) |
-| `NO_CHANGE` | Load within target | No change to frequency |
+1. Compute available capacity = active units - 20% reserve buffer
+2. Sort proposals by urgency (highest first)
+3. Allocate: each district gets `min(requested, remaining)`
+4. When capacity exhausts, lower-urgency districts are denied
 
-**Urgency scoring** — each proposal carries an urgency score that determines resource allocation priority:
-- +2.0 if station crowding > 90% (critical)
-- +1.0 if bus load > 85% target
-- +1.0 if MRT load > 80% target
-- +0.5 if road traffic > 75%
-- +0.5 if air quality < 60
+**This creates real trade-offs**: at 8am with 42 bus units active (34 available after reserve), Central (urgency 3.5) gets full allocation, North (urgency 1.0) gets partial, West may be denied entirely.
 
-**Reasoning output** — the planner generates human-readable reasoning strings explaining each decision, e.g.:
-- *"Central: Bus load 92% exceeds target — requesting +3 service units"*
-- *"North: Low bus demand (14%) — scale-down appropriate"*
-- *"CCL: Load 85% exceeds threshold — requesting +2 train service units"*
+### 5. ExecutionAgent — The Implementer
+
+Applies approved actions to the city state in priority order:
+1. Crowd management (safety first)
+2. Bus actions (DEPLOY_RESERVE, SHORT_TURN, HOLD_AT_TERMINAL, REROUTE)
+3. Train actions (ADD_TRAINS, HOLD_HEADWAY)
+4. Travel advisory (off-peak only)
+5. Escalation (records event, applies cost penalty)
+
+Every action is logged as a structured event with timestamp, district/line, actions taken, and urgency.
 
 ---
 
-### 3. PolicyAgent (`agents/policy.py`)
+## Simulation Environment
 
-**Role**: The safety regulator. Validates all proposals against hard constraints and safety rules before they reach the coordinator. This prevents dangerous or wasteful actions.
+### Districts
 
-**Policy rules enforced**:
+| District | Population | Base Bus Cap | Base MRT Cap | Character |
+|----------|-----------|-------------|-------------|-----------|
+| **Central** | 500,000 | 120 | 40 | CBD core, highest density, most events |
+| **North** | 350,000 | 80 | 25 | Residential, Woodlands border crossing |
+| **East** | 380,000 | 85 | 28 | Changi Airport, tourism hub |
+| **West** | 320,000 | 75 | 22 | Jurong industrial zone |
 
-| Rule | Constraint | Action Taken |
-|------|-----------|--------------|
-| Traffic limit | If road traffic > 80%, block `ADD_BUSES` | Converts to `USE_BUS_PRIORITY` (adding buses to gridlocked roads worsens congestion) |
-| Bus cap | `bus_extra` must be in [0, 10] | Clamps to maximum 10 additional bus units per district per step |
-| Train cap | `mrt_extra` must be in [0, 3] | Clamps to maximum 3 additional train units per line per step |
-| Crowding gate | `CROWD_MGMT` only when crowding > 90% | Removes crowd management if crowding is below critical threshold |
-| Nudge gate | `NUDGE` only when crowding > 70% OR traffic > 75% | Removes nudges if conditions don't warrant demand reduction |
+### Train Lines
 
-**Trace output**: The PolicyAgent returns a detailed trace of all adjustments and blocked actions, e.g.:
-- *"Blocked ADD_BUSES for Central: road traffic 84% > 80% limit"*
-- *"Clamped East bus_extra from 12 to 10"*
-
----
-
-### 4. CoordinatorAgent (`agents/coordinator.py`)
-
-**Role**: The resource allocator. This is the core coordination mechanism that makes MetroMind a true multi-agent system. It takes validated proposals from all districts and train lines, then distributes limited global resources fairly based on urgency.
-
-**Allocation algorithm**:
-1. Compute available capacity = active service units minus ~20% reserve buffer (reserves ensure the system can respond to sudden demand spikes)
-2. Sort all district bus proposals by urgency score (descending — most critical first)
-3. Allocate bus service units from the available pool:
-   - Each district gets `min(requested, remaining)` units
-   - Remaining capacity decreases with each allocation
-   - If capacity is exhausted, lower-urgency districts are denied
-4. Repeat for train line proposals using the train service unit pool
-
-**What makes this meaningful**: When resources are scarce (e.g., 8am rush hour with 42 bus units active but only ~32 available after reserve), the coordinator must make genuine trade-offs. A high-urgency district with critical crowding will receive resources before a moderate-urgency district. This creates realistic resource competition and prioritisation.
-
-**Trace output**: The coordinator logs every allocation decision:
-- *"Central: allocated +5 bus service units"*
-- *"North: requested +3 units, allocated +2 (partial)"*
-- *"West: requested +4 units, denied (reserve limit)"*
-- *"Available: 12 bus units, 3 train units (after reserve)"*
-
----
-
-### 5. ExecutionAgent (`agents/executor.py`)
-
-**Role**: The implementer. Takes approved, allocated proposals and applies them to the city state in a specific order to maximise safety and effectiveness.
-
-**Execution order** (per district):
-1. **Crowd management first** (safety priority) — reduces station crowding by 15% (x0.85)
-2. **Bus actions**:
-   - `ADD_BUSES`: increases district bus capacity and reduces load factor by 5% (x0.95)
-   - `USE_BUS_PRIORITY`: reduces bus load by 3% and road traffic by 2%
-3. **Nudge activation**: sets `nudges_active = True` with a 3-hour timer, which reduces future demand
-
-**Train line execution**:
-- `ADD_TRAINS`: increases line frequency and reduces line load by 5% (x0.95)
-
-**Action logging**: Every action is recorded as a structured event:
-```json
-{
-  "t": 8,
-  "hour": 8,
-  "type": "district",
-  "district": "Central",
-  "actions": ["CROWD_MGMT", "ADD_BUSES +5", "NUDGE_ACTIVATED"],
-  "urgency": 3.5
-}
-```
-
----
-
-## Dynamic Service Unit System
-
-MetroMind uses a **service unit abstraction** rather than literal vehicle counts. Service units represent operational capacity blocks — a combination of route bundles, crew shifts, and fleet segments that a transit authority deploys.
-
-**Maximum capacity**: 50 bus service units, 20 train service units system-wide.
-
-**Hourly scaling profile** — service units are dynamically deployed based on time of day:
-
-| Time of Day | Bus Units Active | Train Units Active | Rationale |
-|-------------|-----------------|-------------------|-----------|
-| 00:00 | 8 (15%) | 3 (15%) | Late night minimal service |
-| 01:00-05:00 | 0 (0%) | 0 (0%) | **Out of service** — no public transit |
-| 06:00 | 20 (40%) | 8 (40%) | Early morning ramp-up |
-| 07:00 | 32 (65%) | 13 (65%) | Pre-peak buildup |
-| **08:00** | **42 (85%)** | **17 (85%)** | **Morning peak** |
-| 09:00 | 40 (80%) | 16 (80%) | Post-peak sustained |
-| 10:00-11:00 | 28 (55%) | 10 (50%) | Midday reduction |
-| 12:00 | 28 (55%) | 11 (55%) | Lunch period |
-| 13:00-15:00 | 25 (50%) | 10 (50%) | Afternoon low |
-| 16:00 | 30 (60%) | 12 (60%) | Pre-evening buildup |
-| 17:00 | 40 (80%) | 16 (80%) | Evening peak begins |
-| **18:00** | **42 (85%)** | **17 (85%)** | **Evening peak** |
-| 19:00 | 35 (70%) | 14 (70%) | Post-peak decline |
-| 20:00-21:00 | 22 (45%) | 7 (35%) | Evening wind-down |
-| 22:00-23:00 | 12 (25%) | 4 (18%) | Late night minimal |
-
-The coordinator maintains a ~20% reserve buffer from active units, ensuring capacity for sudden demand spikes from events or weather.
-
-**Capacity bar colour coding** in the UI:
-- **Green**: < 70% of max deployed
-- **Yellow**: 70-90% of max deployed
-- **Red**: > 90% of max deployed
-
----
-
-## Active Events System
-
-MetroMind simulates random city events that create demand surges in specific districts. Events are triggered probabilistically based on the time of day and add complexity that the agents must adapt to.
-
-### Event Trigger Probability
-
-| Time Period | Base Chance | Rationale |
-|-------------|-------------|-----------|
-| Off-peak (night) | 5% per hour | Rare events at night |
-| Peak hours (7-9am, 5-7pm) | 15% per hour | High activity periods have more events |
-| Midday (10am-4pm) | 8% per hour | Moderate daytime activity |
-
-If 2 or more events are already active, the trigger chance is reduced to 30% of base (to prevent event overload).
-
-### Implemented Events
-
-| Event | Affected Districts | Demand Multiplier | Duration | Special Effects |
-|-------|-------------------|-------------------|----------|----------------|
-| **Rush Hour Surge** | Central | x1.30 (+30% demand) | 2 hours | Standard demand spike during commute peaks |
-| **Concert at Marina Bay** | Central, South | x1.40 (+40% demand) | 3 hours | Entertainment event draws crowds to waterfront districts |
-| **Changi Airport Rush** | East | x1.50 (+50% demand) | 2 hours | Flight arrivals/departures create the highest single-district demand spike |
-| **Jurong Industrial Event** | West | x1.35 (+35% demand) | 2 hours | Industrial district shift changes or factory events |
-| **Sentosa Weekend Crowd** | South | x1.40 (+40% demand) | 3 hours | Recreational island draws weekend visitors |
-| **MRT Line Maintenance** | North, Central | x1.20 (+20% demand) | 2 hours | Also reduces MRT capacity on NSL (North South Line), forcing passengers onto buses and increasing road traffic |
-
-### Event Lifecycle
-
-1. **Trigger**: Each hour, the system rolls against the trigger probability. If successful, a random event is selected.
-2. **Active**: The event's `demand_mult` is applied to all affected districts' demand calculations. Multiple events can stack multiplicatively.
-3. **Expire**: Each hour, the event's `remaining_hours` decreases by 1. When it reaches 0, the event ends and its effects are removed.
-4. **Agent response**: The planner observes increased load factors caused by events and proposes additional resources. The coordinator allocates based on urgency.
-
----
-
-## Weather System
-
-MetroMind simulates Singapore's tropical weather patterns with persistence and time-of-day variation.
-
-### Weather Types
-
-| Condition | Intensity Range | Effect on Transit | Frequency |
-|-----------|----------------|-------------------|-----------|
-| **Clear** | 0% | No impact | Most common |
-| **Light Rain** | 20-50% | Mild demand increase (people avoid walking) | Moderate |
-| **Heavy Rain** | 60-90% | Significant demand surge, reduced road speeds | Afternoon peak |
-| **Thunderstorm** | 70-100% | Major disruption, high demand, dangerous conditions | Rare, afternoon |
-| **Haze** | 30-70% | Reduced air quality, health concerns | Rare, morning |
-
-### Weather Patterns by Time of Day
-
-- **Afternoon (2-6pm)**: Highest chance of heavy rain (15%), thunderstorms (5%), light rain (20%) — reflecting Singapore's tropical afternoon convection pattern.
-- **Morning (8-11am)**: Haze possibility (8%), light rain (10%) — morning haze dissipates by midday.
-- **Other hours**: Mostly clear with occasional light rain (10%).
-
-Weather conditions persist for 1-5 hours before transitioning.
-
----
-
-## Out-of-Service Hours
-
-Between **01:00 and 05:00**, MetroMind simulates Singapore's actual transit operating hours:
-
-- All bus and train service units are set to **0 active**.
-- Agent pipeline enters **standby mode** — no proposals, no allocation, no execution.
-- Existing loads decay rapidly (x0.3 for bus/MRT loads, x0.4 for station crowding).
-- Train frequencies are set to 0.
-- The UI displays a prominent red banner: *"Out of Operating Hours: No Bus/Train Service (01:00-05:00)"*.
-- District map shows "No Service" labels, train map shows dashed lines with reduced opacity.
-- Live Interventions panel shows all agents in standby with explanatory notes.
-
-At **06:00**, service resumes at 40% capacity and ramps up toward peak hours.
-
----
-
-## Key Metrics and Scoring
-
-### Liveability Score (0-100, higher is better)
-
-Measures how well the transit system serves citizens. Penalises:
-- Station crowding (35% weight) — heavily penalised as it affects safety
-- Bus overload above 85% target (25% weight)
-- MRT overload above 80% target (25% weight)
-- Road traffic congestion (15% weight)
-
-```
-liveability = 100 - (
-    35 * avg_station_crowding +
-    25 * max(0, avg_bus_load - 0.85) +
-    25 * max(0, avg_mrt_load - 0.80) +
-    15 * avg_traffic
-) * 100
-```
-
-### Environment Score (0-100, higher is better)
-
-Measures environmental impact:
-- Road traffic as emissions proxy (60% weight)
-- Air quality degradation (40% weight)
-
-```
-environment = 100 - (
-    0.6 * avg_traffic * 100 +
-    0.4 * (100 - avg_air_quality)
-)
-```
-
-### Carbon Emissions Tracking
-
-- Bus emissions: 50 kg CO2 per unit per hour
-- MRT emissions: 10 kg CO2 per unit per hour
-- Traffic emissions: 100 kg CO2 x traffic factor per district
-
----
-
-## Districts
-
-| District | Population | Base Bus Capacity | Base MRT Capacity | Characteristics |
-|----------|-----------|-------------------|-------------------|-----------------|
-| **Central** | 500,000 | 120 | 40 | CBD area, highest density, most event-prone |
-| **North** | 350,000 | 80 | 25 | Residential, connects to Malaysia via Woodlands |
-| **East** | 380,000 | 85 | 28 | Airport district (Changi), tourism |
-| **West** | 320,000 | 75 | 22 | Industrial (Jurong), manufacturing |
-
----
-
-## Train Lines
-
-| Line | Code | Colour | Base Frequency | Key Stations |
-|------|------|--------|---------------|--------------|
-| **North South Line** | NSL | Red | 14/hour | Woodlands, Yishun, Orchard, City Hall, Marina South |
-| **East West Line** | EWL | Green | 14/hour | Tuas, Jurong, Dhoby Ghaut, Tampines, Changi |
-| **North East Line** | NEL | Purple | 10/hour | Punggol, Serangoon, Dhoby Ghaut, HarbourFront |
-| **Circle Line** | CCL | Orange | 12/hour | Bishan, Botanic Gardens, Bayfront, MacPherson (loop) |
+| Line | Code | Colour | Base Freq | Key Stations |
+|------|------|--------|-----------|--------------|
+| North South Line | NSL | Red | 14/h | Woodlands → Orchard → City Hall → Marina South |
+| East West Line | EWL | Green | 14/h | Tuas → Jurong → Dhoby Ghaut → Tampines → Changi |
+| North East Line | NEL | Purple | 10/h | Punggol → Serangoon → Dhoby Ghaut → HarbourFront |
+| Circle Line | CCL | Orange | 12/h | Bishan → Botanic Gardens → Bayfront → MacPherson (loop) |
 
 All lines converge at **Dhoby Ghaut Interchange**.
+
+### Service Unit Scaling
+
+Service units deploy dynamically by hour of day:
+
+| Period | Bus Active | Train Active | Notes |
+|--------|-----------|-------------|-------|
+| 01:00-05:00 | 0 (0%) | 0 (0%) | **No service** — mirrors real Singapore operations |
+| 06:00 | 20 (40%) | 8 (40%) | Morning ramp-up |
+| **08:00** | **42 (85%)** | **17 (85%)** | **Morning peak** |
+| 12:00 | 28 (55%) | 11 (55%) | Midday |
+| **18:00** | **42 (85%)** | **17 (85%)** | **Evening peak** |
+| 22:00 | 12 (25%) | 4 (18%) | Late night wind-down |
+
+### Events (Stochastic)
+
+| Event | Districts | Demand Impact | Duration | Special |
+|-------|-----------|--------------|----------|---------|
+| Rush Hour Surge | Central | +30% | 2h | Standard peak |
+| Concert at Marina Bay | Central | +40% | 3h | Entertainment |
+| Changi Airport Rush | East | +50% | 2h | Highest spike |
+| Jurong Industrial Event | West | +35% | 2h | Shift change |
+| MRT Line Maintenance | North, Central | +20% | 2h | Reduces NSL capacity |
+| Station Crowd Surge | Central | +45% | 1h | Severe crowding |
+| Train Signal Fault | Central, East | +25% | 2h | Reduces EWL capacity |
+| Road Incident (Accident) | West | +15% | 1h | Triggers REROUTE |
+
+### Weather
+
+Singapore's tropical patterns with persistence:
+
+| Condition | Effect on Transit | Peak Probability |
+|-----------|------------------|-----------------|
+| Clear | None | Default |
+| Light Rain | +5% traffic, +3% crowding | 10-20% |
+| Heavy Rain | +12% traffic, +8% crowding, forecast boost | 15% afternoon |
+| Thunderstorm | +15% traffic, +10% crowding, MRT disruption risk | 5% afternoon |
+| Haze | -15 air quality | 8% morning |
+
+---
+
+## Scoring and KPIs
+
+MetroMind tracks three composite scores (0-100, higher is better):
+
+### Liveability Score
+How well transit serves citizens:
+- Station crowding penalty (35% weight)
+- Bus overload above 85% target (25%)
+- MRT overload above 80% target (25%)
+- Road traffic congestion (15%)
+
+### Environment Score
+Environmental impact:
+- Road traffic as emissions proxy (60%)
+- Air quality degradation (40%)
+
+### Cost Efficiency Score
+Operating cost discipline:
+- 100 CU/hour → 100 (efficient)
+- 350 CU/hour → 50 (moderate)
+- 600+ CU/hour → 0 (over-deployed)
+
+### Carbon Emissions
+- Bus: 50 kg CO2/unit/hour
+- MRT: 10 kg CO2/unit/hour
+- Traffic: 100 kg CO2 × traffic factor per district
+
+---
+
+## Limitations and Future Work
+
+MetroMind is a **simulation prototype** demonstrating multi-agent transit orchestration architecture, not a production system.
+
+### Current Limitations
+
+| Limitation | What a Production System Would Need |
+|-----------|-------------------------------------|
+| Aggregate load factors per district | Origin-destination matrices, per-station passenger counts |
+| Service unit abstraction | Route-level scheduling (specific bus routes, stops, timetables) |
+| Probabilistic events | Real-time event feeds (LTA DataMall, social media, CCTV) |
+| No passenger choice model | Mode switching simulation (bus ↔ MRT ↔ car based on service quality) |
+| Simple EMA forecasting | ML-based demand prediction trained on historical ridership data |
+
+### Future Extensions
+
+- **Real LTA data integration**: DataMall API for live bus/train positions, ridership
+- **ML demand forecasting**: Replace EMA with time-series models (Prophet, LSTM) trained on real data
+- **Multi-modal passenger routing**: Simulate individual passenger decisions across modes
+- **LLM-powered reasoning**: Use LLM agents for natural-language operator briefs and scenario planning
+- **Real-time dashboard**: WebSocket-based live updates instead of polling
 
 ---
 
 ## Why This is Agentic AI
 
-MetroMind demonstrates the six key properties that define an agentic AI system:
+| Agentic Property | How MetroMind Demonstrates It |
+|------------------|-------------------------------|
+| **Persistent state** | City state accumulates across hours — load, events, costs, history. No step is independent. |
+| **Multiple competing goals** | Maximise liveability, minimise environmental impact, **AND** optimise operating cost. These genuinely conflict. |
+| **Autonomous reasoning** | Agents observe, forecast, reason, propose, validate, allocate, and execute — all without human prompting. |
+| **Multi-agent coordination** | Five agents with distinct roles, checks, and balances. The coordinator makes genuine resource allocation trade-offs under scarcity. |
+| **Environment feedback loop** | Actions change the city → KPIs update → future observations differ → agents adapt their reasoning. |
+| **Safety constraints** | Service unit limits, per-step caps, policy rules, peak-hour blocks, reserve buffers, operating hours, **and human escalation**. |
+| **Proactive planning** | Demand forecasting enables pre-positioning reserves **before** surges — not just reacting after the fact. |
 
-| Property | How MetroMind Demonstrates It |
-|----------|-------------------------------|
-| **State over time** | City state persists across steps — districts accumulate load, events progress, weather evolves, emissions compound. Full history tracked for trend analysis. |
-| **Goals** | Dual objectives: maximise liveability (reduce crowding, improve transit) AND maximise environmental sustainability (reduce emissions, improve air quality). These sometimes conflict. |
-| **Autonomous actions** | Agents observe, reason, and act every step without human prompting. The planner generates reasoning, the coordinator makes trade-offs, the executor implements — all autonomously. |
-| **Coordination** | Five agents with distinct roles coordinate through a structured pipeline. The planner proposes, policy validates, coordinator allocates scarce resources, executor implements. No single agent has unchecked authority. |
-| **Feedback loop** | Actions change the environment, KPIs update, future observations differ, agents adapt. Adding buses reduces load, planner sees improvement, proposes fewer additions next step. |
-| **Constraints/Safety** | Service unit limits (50 bus, 20 train), per-step caps (10 bus, 3 train), policy rules (no buses on gridlocked roads), reserve buffers (20%), and operating hour restrictions (01:00-05:00 shutdown). |
-
-**Key insight**: This is not reactive rule-matching. The CoordinatorAgent makes genuine resource allocation trade-offs under scarcity, the PolicyAgent prevents unsafe actions even when urgency is high, and the PlannerAgent adapts its reasoning based on current conditions. Districts denied resources in one step receive higher priority in subsequent steps through the urgency scoring mechanism.
+**The key insight**: This is not rule-matching. The CoordinatorAgent makes **genuine resource allocation trade-offs** under scarcity. The PolicyAgent prevents unsafe actions even when urgency is high. The PlannerAgent adapts reasoning based on forecasts. Districts denied resources receive higher priority next step through urgency scoring. The system knows when to **escalate to humans** rather than acting beyond its capability.
 
 ---
 
@@ -419,39 +471,47 @@ pip install -r requirements.txt
 uvicorn backend.main:app --reload
 ```
 
-The API will be available at `http://127.0.0.1:8000`
+API available at `http://127.0.0.1:8000`
 
 ### 3. Open the Frontend
 
-**Method 1 — VS Code Live Server**:
-Open `frontend/index.html` then right-click and select "Open with Live Server"
+**Option A — VS Code Live Server**: Open `frontend/index.html` → right-click → "Open with Live Server"
 
-**Method 2 — Python HTTP Server**:
+**Option B — Python HTTP Server**:
 ```bash
 cd metromind/frontend
 python -m http.server 5500
 ```
-Then open `http://localhost:5500`
+Open `http://localhost:5500`
 
 ### 4. Use the Dashboard
 
-- **Hour dropdown**: Select a target hour — simulation auto-runs to that time
-- **+/- buttons**: Step forward or backward by 1 hour
-- **Reset**: Reset simulation to midnight, Day 1
+| Control | What It Does |
+|---------|-------------|
+| **Hour dropdown** | Select target hour — simulation runs to that time |
+| **+/- buttons** | Step forward or backward 1 hour |
+| **Reset** | Return to midnight, Day 1 |
+| **Bus/Train Map tabs** | Switch between district load map and train line schematic |
+| **Forecast panel** | Shows predicted demand (+1h, +2h, +3h) per district with colour-coded bars |
+| **Cost card** | Current hour cost and daily total in Cost Units (CU) |
+| **Agent Orchestra** | Real-time agent activation status during simulation |
+| **Live Interventions** | Full agent decision trace (monitor alerts → planner reasoning → policy blocks → coordinator allocations → executor actions) |
 
 ---
 
-## API Endpoints
+## API Reference
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/state` | GET | Get current city state without advancing time |
-| `/api/step` | POST | Advance simulation by 1 hour |
-| `/api/simulate?hour=HH` | POST | Simulate forward to the specified hour (0-23) |
-| `/api/step_hour?delta=1` | POST | Step forward 1 hour |
-| `/api/step_hour?delta=-1` | POST | Step backward 1 hour (wraps via 23 forward steps) |
-| `/api/run?n=N` | POST | Run N simulation steps (1-100) |
-| `/api/reset` | POST | Reset city to initial state (midnight, Day 1) |
+| `/api/state` | GET | Current city state (scores, metrics, forecast, cost, events) |
+| `/api/step` | POST | Advance 1 hour |
+| `/api/simulate?hour=HH` | POST | Simulate forward to target hour (0-23) |
+| `/api/step_hour?delta=1` | POST | Step +1 hour |
+| `/api/step_hour?delta=-1` | POST | Step -1 hour (wraps via 23 forward steps) |
+| `/api/run?n=N` | POST | Run N steps (1-100) |
+| `/api/reset` | POST | Reset to midnight, Day 1 |
+
+All endpoints return the full city state payload including scores, metrics, agent traces, forecast data, cost breakdown, and operator escalations.
 
 ---
 
@@ -460,22 +520,27 @@ Then open `http://localhost:5500`
 ```
 metromind/
 ├── backend/
-│   ├── main.py          # FastAPI application with CORS, endpoints, global city state
-│   ├── models.py        # Data models (CityState, DistrictState, TrainLineState, WeatherState, ActiveEvent)
-│   ├── env.py           # Environment dynamics (demand waves, weather, events, emissions)
-│   ├── kpi.py           # KPI calculations (liveability score, environment score)
-│   ├── orchestrator.py  # Main orchestration logic, service unit scaling, agent pipeline
+│   ├── main.py            # FastAPI app — CORS, endpoints, global city state
+│   ├── models.py          # Data models, cost constants, event definitions
+│   ├── env.py             # Environment simulation (demand, weather, events, emissions, cost)
+│   ├── kpi.py             # KPI scoring (liveability, environment, cost efficiency)
+│   ├── forecast.py        # Demand forecaster (EMA + base curves, weather/event adjustments)
+│   ├── orchestrator.py    # Main orchestration — service scaling, forecast+cost integration
 │   └── agents/
-│       ├── __init__.py      # Agent exports
-│       ├── monitoring.py    # MonitoringAgent — observes city state, generates alerts
-│       ├── planner.py       # CapacityPlannerAgent — proposes actions with urgency and reasoning
-│       ├── policy.py        # PolicyAgent — validates constraints, blocks unsafe proposals
-│       ├── coordinator.py   # CoordinatorAgent — allocates limited resources by urgency
-│       └── executor.py      # ExecutionAgent — applies approved actions, logs interventions
+│       ├── __init__.py        # Agent exports
+│       ├── monitoring.py      # MonitoringAgent — city state observation, alerts
+│       ├── planner.py         # CapacityPlannerAgent — forecast-driven, cost-aware proposals
+│       ├── policy.py          # PolicyAgent — safety constraints, peak-hour advisory blocks
+│       ├── coordinator.py     # CoordinatorAgent — urgency-based resource allocation
+│       └── executor.py        # ExecutionAgent — action execution, operator escalation
 ├── frontend/
-│   ├── index.html       # Dashboard UI (maps, controls, metrics, agent panels)
-│   ├── app.js           # API calls, DOM updates, chart rendering, agent animations
-│   └── styles.css       # Dark theme styling, responsive layout, capacity bar colours
-├── requirements.txt     # Python dependencies (fastapi, uvicorn)
-└── README.md            # This file
+│   ├── index.html         # Dashboard (maps, forecast panel, cost card, agent panels)
+│   ├── app.js             # API calls, DOM updates, forecast/cost rendering, animations
+│   └── styles.css         # Dark theme, responsive layout
+├── requirements.txt       # Python dependencies (fastapi, uvicorn)
+└── README.md              # This file
 ```
+
+---
+
+*Built for the Hack for Cities 2025 Hackathon.*

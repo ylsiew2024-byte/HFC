@@ -1,4 +1,4 @@
-// MetroMind - Smart Transit AI Dashboard
+// MetroMind v2 - Smart Transit AI Dashboard
 const API_BASE = 'http://127.0.0.1:8000';
 let scoreChart = null;
 
@@ -23,7 +23,6 @@ const NO_SERVICE_HOURS = new Set([1, 2, 3, 4, 5]);
 document.addEventListener('DOMContentLoaded', () => {
     initChart();
     fetchState();
-    // Auto-trigger simulation when dropdown changes
     document.getElementById('hour-select').addEventListener('change', () => simulateHour());
 });
 
@@ -36,6 +35,7 @@ function initChart() {
             datasets: [
                 { label: 'Liveability', data: [], borderColor: '#4fd1c5', backgroundColor: 'rgba(79,209,197,0.1)', tension: 0.3, fill: true, pointRadius: 0 },
                 { label: 'Environment', data: [], borderColor: '#48bb78', backgroundColor: 'rgba(72,187,120,0.1)', tension: 0.3, fill: true, pointRadius: 0 },
+                { label: 'Cost Eff.', data: [], borderColor: '#ed8936', backgroundColor: 'rgba(237,137,54,0.1)', tension: 0.3, fill: true, pointRadius: 0 },
             ],
         },
         options: {
@@ -55,7 +55,6 @@ async function fetchState() {
     try {
         const r = await fetch(`${API_BASE}/api/state`);
         const data = await r.json();
-        // Sync dropdown to actual city hour
         document.getElementById('hour-select').value = data.time.hour;
         updateUI(data);
     } catch (e) {
@@ -88,7 +87,6 @@ async function stepHourPlus() {
         await animateAgents();
         const r = await fetch(`${API_BASE}/api/step_hour?delta=1`, { method: 'POST' });
         const data = await r.json();
-        // Sync dropdown to new hour
         document.getElementById('hour-select').value = data.time.hour;
         if (data.actions && data.actions.length > 0) animateInterventions(data.actions);
         updateUI(data);
@@ -125,11 +123,11 @@ async function resetSim() {
         const r = await fetch(`${API_BASE}/api/reset`, { method: 'POST' });
         const data = await r.json();
         scoreChart.data.labels = [];
-        scoreChart.data.datasets[0].data = [];
-        scoreChart.data.datasets[1].data = [];
+        scoreChart.data.datasets.forEach(ds => ds.data = []);
         scoreChart.update();
         document.getElementById('hour-select').value = 8;
         document.getElementById('interventions-content').innerHTML = '<div class="no-events">Run a simulation step to see agent interventions</div>';
+        document.getElementById('forecast-content').innerHTML = '<div class="no-events">Run simulation to see forecasts</div>';
         updateUI(data);
     } catch (e) {
         console.error('Reset error:', e);
@@ -150,7 +148,7 @@ function switchMap(which) {
 // ========== Agent Animation ==========
 async function animateAgents() {
     const agents = ['monitor', 'planner', 'policy', 'coordinator', 'executor'];
-    const states = ['Observing city...', 'Proposing actions...', 'Validating rules...', 'Allocating resources...', 'Executing...'];
+    const states = ['Observing city...', 'Forecasting + planning...', 'Validating rules...', 'Allocating resources...', 'Executing...'];
     for (let i = 0; i < agents.length; i++) {
         const card = document.getElementById(`agent-${agents[i]}`);
         const stateEl = document.getElementById(`${agents[i]}-state`);
@@ -181,11 +179,14 @@ function animateInterventions(actions) {
         (action.actions || []).forEach((act, j) => {
             setTimeout(() => {
                 let text = '';
-                if (act.includes('BUS') && act.includes('+')) text = '\uD83D\uDE8C ' + act;
-                else if (act.includes('PRIORITY')) text = '\uD83D\uDE8C Priority';
-                else if (act.includes('TRAIN')) text = '\uD83D\uDE87 ' + act;
+                if (act.includes('DEPLOY_RESERVE')) text = '\uD83D\uDE8C ' + act;
+                else if (act.includes('SHORT_TURN')) text = '\uD83D\uDE8C Short Turn';
+                else if (act.includes('HOLD_AT_TERMINAL')) text = '\u23F8 Hold';
+                else if (act.includes('REROUTE')) text = '\u21BB Reroute';
                 else if (act.includes('CROWD')) text = '\uD83D\uDC65 Managed';
-                else if (act.includes('NUDGE')) text = '\uD83D\uDCF1 Nudge';
+                else if (act.includes('ADVISORY')) text = '\uD83D\uDCE2 Advisory';
+                else if (act.includes('ESCALATE')) text = '\u26A0 Escalate';
+                else if (act.includes('TRAIN')) text = '\uD83D\uDE87 ' + act;
                 if (text) {
                     const el = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                     el.setAttribute('x', c.x);
@@ -234,6 +235,10 @@ function updateUI(data) {
     // Scores
     document.getElementById('header-liveability').textContent = data.scores.liveability_score.toFixed(1);
     document.getElementById('header-environment').textContent = data.scores.environment_score.toFixed(1);
+    // Cost efficiency score (v2)
+    if (data.scores.cost_score !== undefined) {
+        document.getElementById('header-cost').textContent = data.scores.cost_score.toFixed(1);
+    }
 
     // Weather
     updateWeather(data.weather);
@@ -259,6 +264,20 @@ function updateUI(data) {
         document.getElementById('mrt-budget-value').textContent = `${trainActive} / ${trainMax} active`;
     }
 
+    // Cost (v2)
+    if (data.cost) {
+        const costHour = document.getElementById('cost-this-hour');
+        const costDay = document.getElementById('cost-today');
+        costHour.textContent = `${data.cost.cost_this_hour.toFixed(0)} CU`;
+        costDay.textContent = `${data.cost.cost_today.toFixed(0)} CU`;
+        costHour.className = 'cost-value' + (data.cost.cost_this_hour > 500 ? ' cost-high' : '');
+    }
+
+    // Forecast (v2)
+    if (data.forecast) {
+        updateForecastPanel(data.forecast, noService);
+    }
+
     // Environment
     if (data.environment) {
         document.getElementById('sustainability-bar').style.width = `${data.environment.sustainability_score}%`;
@@ -279,7 +298,7 @@ function updateUI(data) {
     airEl.textContent = data.metrics.avg_air.toFixed(1);
     airEl.className = 'metric-value ' + (data.metrics.avg_air >= 80 ? 'good' : data.metrics.avg_air >= 60 ? 'moderate' : data.metrics.avg_air >= 40 ? 'busy' : 'critical');
 
-    // District map (apply no-service greying)
+    // District map
     updateBusMap(data.districts, noService);
 
     // Train map
@@ -295,6 +314,58 @@ function updateUI(data) {
 
     // Chart
     updateChart(data.history_tail);
+}
+
+// ========== Forecast Panel (v2) ==========
+function updateForecastPanel(forecast, noService) {
+    const container = document.getElementById('forecast-content');
+
+    // During no-service hours, show glass banner
+    if (noService) {
+        container.innerHTML = `<div class="forecast-no-service">
+            <span class="forecast-no-service-icon">\uD83D\uDEAB</span>
+            <span class="forecast-no-service-text">No Bus/Train Service (01:00 \u2013 05:00)</span>
+        </div>`;
+        return;
+    }
+
+    let html = '';
+
+    // District forecasts
+    for (const [name, fc] of Object.entries(forecast.districts || {})) {
+        const vals = fc.forecast || [];
+        const current = fc.current_load || 0;
+        const peak = Math.max(...vals);
+        const peakClass = peak > 0.85 ? 'critical' : peak > 0.7 ? 'busy' : peak > 0.5 ? 'moderate' : 'good';
+
+        html += `<div class="forecast-row">
+            <span class="forecast-name">${name}</span>
+            <span class="forecast-current">${(current*100).toFixed(0)}%</span>
+            <div class="forecast-bars">`;
+        vals.forEach((v, i) => {
+            const pct = Math.min(100, v * 100);
+            const cls = v > 0.85 ? 'critical' : v > 0.7 ? 'busy' : v > 0.5 ? 'moderate' : 'good';
+            html += `<div class="forecast-bar-wrap" title="+${i+1}h: ${(v*100).toFixed(0)}%">
+                <div class="forecast-bar ${cls}" style="height:${pct}%"></div>
+                <span class="forecast-label">+${i+1}h</span>
+            </div>`;
+        });
+        html += `</div>
+            <span class="forecast-peak ${peakClass}">${(peak*100).toFixed(0)}%</span>
+        </div>`;
+    }
+
+    // Forecast alerts
+    const alerts = forecast.alerts || [];
+    if (alerts.length > 0) {
+        html += '<div class="forecast-alerts">';
+        alerts.forEach(a => {
+            html += `<div class="forecast-alert">${a}</div>`;
+        });
+        html += '</div>';
+    }
+
+    container.innerHTML = html || '<div class="no-events">No forecast data</div>';
 }
 
 // ========== Weather ==========
@@ -472,13 +543,26 @@ function updateInterventionsPanel(trace) {
     }
     html += '</div>';
 
+    // Escalations (v2)
+    const escalations = trace.escalations || [];
+    if (escalations.length > 0) {
+        html += `<div class="intervention-section escalation-section">
+            <div class="intervention-agent"><span class="intervention-agent-icon">\u26A0\uFE0F</span> Operator Escalation</div>
+            <ul class="intervention-list escalation-items">`;
+        escalations.forEach(e => {
+            html += `<li>${e.reason} (${e.district || e.line_id})</li>`;
+        });
+        html += '</ul></div>';
+    }
+
     // Environment
     const env = trace.env || {};
     html += `<div class="intervention-section">
         <div class="intervention-agent"><span class="intervention-agent-icon">\uD83C\uDF0D</span> Environment</div>`;
     const envItems = [];
     if (env.events_triggered && env.events_triggered.length > 0) envItems.push(...env.events_triggered.map(e => `Event triggered: ${e}`));
-    if (env.emissions !== undefined) envItems.push(`Emissions this hour: ${env.emissions} kg CO2`);
+    if (env.emissions !== undefined) envItems.push(`Emissions: ${env.emissions} kg CO2`);
+    if (env.cost_this_hour !== undefined) envItems.push(`Operating cost: ${env.cost_this_hour} CU`);
     if (envItems.length > 0) {
         html += '<ul class="intervention-list">' + envItems.map(i => `<li>${i}</li>`).join('') + '</ul>';
     } else {
@@ -562,7 +646,7 @@ function updateActiveEventsPanel(data, noService) {
     const events = data.active_events || [];
     if (events.length > 0) {
         cityDiv.innerHTML = events.map(ev => `
-            <div class="event-card">
+            <div class="event-card${ev.road_incident ? ' road-incident' : ''}">
                 <span class="event-icon">${ev.icon}</span>
                 <div class="event-info">
                     <div class="event-name">${ev.name}</div>
@@ -586,6 +670,7 @@ function updateChart(history) {
     scoreChart.data.labels = history.map(h => `${String(h.hour).padStart(2,'0')}:00`);
     scoreChart.data.datasets[0].data = history.map(h => h.scores.liveability_score);
     scoreChart.data.datasets[1].data = history.map(h => h.scores.environment_score);
+    scoreChart.data.datasets[2].data = history.map(h => h.scores.cost_score || 0);
     scoreChart.update('none');
 }
 
