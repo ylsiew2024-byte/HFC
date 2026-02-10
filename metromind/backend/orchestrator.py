@@ -212,6 +212,10 @@ class Orchestrator:
         else:
             city.bus_service_units_active = round(city.bus_service_units_max * new_scale)
             city.train_service_units_active = round(city.train_service_units_max * new_scale)
+            # Restore train frequency after no-service hours
+            for line in city.train_lines.values():
+                if line.frequency < line.base_frequency:
+                    line.frequency = line.base_frequency
             # Recalculate cost_this_hour to reflect the NEW hour's service level
             city.cost_this_hour = self._preview_hourly_cost(city)
 

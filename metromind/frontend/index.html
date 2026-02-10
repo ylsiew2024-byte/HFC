@@ -39,31 +39,24 @@
 
         <!-- Main Dashboard -->
         <main class="dashboard">
-            <!-- Left Panel: Maps -->
+            <!-- Left Panel: Maps + Forecasts -->
             <section class="map-panel">
-                <!-- Time & Weather Bar -->
+                <!-- Time Bar -->
                 <div class="panel-header">
                     <h2>Singapore Transit Maps</h2>
                     <div class="time-display">
+                        <span class="time-day">Day <span id="day-count">1</span></span>
+                        <span class="time-sep">|</span>
                         <span class="time-icon" id="time-icon">&#127769;</span>
                         <span class="time-text" id="clock-time">00:00</span>
                         <span class="time-period" id="clock-period">Night</span>
                     </div>
                 </div>
 
-                <div class="weather-badge" id="weather-badge">
-                    <span class="weather-icon" id="weather-icon">&#9728;&#65039;</span>
-                    <span class="weather-text" id="weather-text">Clear</span>
-                    <span class="weather-region" id="weather-region">Islandwide</span>
-                </div>
-
-                <!-- Map Tabs -->
-                <div class="map-tabs">
-                    <button class="map-tab active" id="tab-bus" onclick="switchMap('bus')">&#128652; Bus Map</button>
-                    <button class="map-tab" id="tab-train" onclick="switchMap('train')">&#128647; Train Map</button>
-                </div>
-
-                <!-- Bus District Map -->
+                <!-- Bus Map + Bus Forecast Row -->
+                <div class="map-forecast-row">
+                <div class="map-side">
+                <h3 class="map-section-title">&#128652; Bus Map</h3>
                 <div class="map-container" id="bus-map-container">
                     <svg viewBox="0 0 450 280" class="singapore-map" id="sg-map-bus">
                         <defs>
@@ -125,9 +118,22 @@
                         <div class="legend-item"><span class="legend-color critical"></span><span>Critical</span></div>
                     </div>
                 </div>
+                </div><!-- end map-side -->
 
-                <!-- Train Line Map -->
-                <div class="map-container hidden" id="train-map-container">
+                <!-- Bus Demand Forecast -->
+                <div class="forecast-side">
+                    <h3 class="map-section-title">&#128200; Bus Demand (+1-3h)</h3>
+                    <div class="forecast-content" id="bus-forecast-content">
+                        <div class="no-events">Run simulation to see forecasts</div>
+                    </div>
+                </div>
+                </div><!-- end map-forecast-row -->
+
+                <!-- Train Map + Train Forecast Row -->
+                <div class="map-forecast-row">
+                <div class="map-side">
+                <h3 class="map-section-title">&#128647; Train Map</h3>
+                <div class="map-container" id="train-map-container">
                     <svg viewBox="0 0 500 340" class="train-map" id="sg-map-train">
                         <defs>
                             <linearGradient id="train-bg" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -249,19 +255,56 @@
                         <div class="legend-item"><span class="legend-line" style="background:#ed8936"></span><span>CCL</span></div>
                     </div>
                 </div>
+                </div><!-- end map-side -->
 
-                <!-- Day Counter -->
-                <div class="day-counter">
-                    <span class="day-label">Day</span>
-                    <span class="day-value" id="day-count">1</span>
-                    <span class="hour-label">Hour</span>
-                    <span class="hour-value" id="hour-count">00:00</span>
+                <!-- Train Demand Forecast -->
+                <div class="forecast-side">
+                    <h3 class="map-section-title">&#128200; Train Demand (+1-3h)</h3>
+                    <div class="forecast-content" id="train-forecast-content">
+                        <div class="no-events">Run simulation to see forecasts</div>
+                    </div>
+                </div>
+                </div><!-- end map-forecast-row -->
+
+                <!-- Active Events -->
+                <div class="active-events-panel">
+                    <h2>&#128225; Active Events</h2>
+                    <div id="active-events-content" class="active-events-grid">
+                        <!-- Weather Section -->
+                        <div class="event-section">
+                            <h3 class="event-section-title">Weather</h3>
+                            <div id="events-weather" class="event-section-body">
+                                <div class="no-events">Clear skies</div>
+                            </div>
+                        </div>
+                        <!-- Train Lines Section -->
+                        <div class="event-section">
+                            <h3 class="event-section-title">Train Lines</h3>
+                            <div id="events-trains" class="event-section-body">
+                                <div class="no-events">All lines normal</div>
+                            </div>
+                        </div>
+                        <!-- District Alerts Section -->
+                        <div class="event-section">
+                            <h3 class="event-section-title">District Alerts</h3>
+                            <div id="events-districts" class="event-section-body">
+                                <div class="no-events">No alerts</div>
+                            </div>
+                        </div>
+                        <!-- City Events -->
+                        <div class="event-section">
+                            <h3 class="event-section-title">City Events</h3>
+                            <div id="events-city" class="event-section-body">
+                                <div class="no-events">No active events</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
             <!-- Center Panel: Controls & Metrics -->
             <section class="control-panel">
-                <!-- Hour selector with +/- buttons -->
+                <!-- Hour selector with +/- buttons + Weather -->
                 <div class="controls">
                     <div class="hour-select-group">
                         <label for="hour-select" class="hour-label-text">Simulate to hour:</label>
@@ -285,6 +328,13 @@
                         </div>
                     </div>
                     <a href="#" onclick="resetSim(); return false;" class="reset-link" id="btn-reset">Reset</a>
+                </div>
+
+                <!-- Weather Badge (moved here) -->
+                <div class="weather-badge" id="weather-badge">
+                    <span class="weather-icon" id="weather-icon">&#9728;&#65039;</span>
+                    <span class="weather-text" id="weather-text">Clear</span>
+                    <span class="weather-region" id="weather-region">Islandwide</span>
                 </div>
 
                 <!-- Service Unit Deployment -->
@@ -323,14 +373,6 @@
                     </div>
                     <div class="cost-breakdown" id="cost-breakdown">
                         <span class="cost-note">Cost = active units + standby reserve + incident penalties</span>
-                    </div>
-                </div>
-
-                <!-- Demand Forecast (v2) -->
-                <div class="forecast-display">
-                    <h3>&#128200; Demand Forecast (+1-3h)</h3>
-                    <div class="forecast-content" id="forecast-content">
-                        <div class="no-events">Run simulation to see forecasts</div>
                     </div>
                 </div>
 
@@ -442,40 +484,6 @@
                     </div>
                 </div>
 
-                <!-- Active Events (ops dashboard style) -->
-                <div class="active-events-panel">
-                    <h2>&#128225; Active Events</h2>
-                    <div id="active-events-content">
-                        <!-- Weather Section -->
-                        <div class="event-section">
-                            <h3 class="event-section-title">Weather</h3>
-                            <div id="events-weather" class="event-section-body">
-                                <div class="no-events">Clear skies</div>
-                            </div>
-                        </div>
-                        <!-- Train Lines Section -->
-                        <div class="event-section">
-                            <h3 class="event-section-title">Train Lines</h3>
-                            <div id="events-trains" class="event-section-body">
-                                <div class="no-events">All lines normal</div>
-                            </div>
-                        </div>
-                        <!-- District Alerts Section -->
-                        <div class="event-section">
-                            <h3 class="event-section-title">District Alerts</h3>
-                            <div id="events-districts" class="event-section-body">
-                                <div class="no-events">No alerts</div>
-                            </div>
-                        </div>
-                        <!-- City Events -->
-                        <div class="event-section">
-                            <h3 class="event-section-title">City Events</h3>
-                            <div id="events-city" class="event-section-body">
-                                <div class="no-events">No active events</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </section>
         </main>
 

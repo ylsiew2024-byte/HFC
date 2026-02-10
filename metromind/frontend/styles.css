@@ -67,7 +67,7 @@ body {
 .environment-pill .stat-value { color: var(--accent-green); }
 
 /* Dashboard */
-.dashboard { display: grid; grid-template-columns: 30% 40% 1fr; gap: var(--space-md); flex: 1; }
+.dashboard { display: grid; grid-template-columns: 50% 25% 25%; gap: var(--space-md); flex: 1; }
 .map-panel, .control-panel, .agent-panel {
     background: var(--bg-secondary); border-radius: var(--radius-lg);
     padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-md);
@@ -99,19 +99,19 @@ body {
 .weather-text { font-weight: 600; font-size: 0.9rem; }
 .weather-region { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; }
 
-/* Map tabs */
-.map-tabs { display: flex; gap: var(--space-sm); }
-.map-tab {
-    flex: 1; padding: var(--space-sm) var(--space-md); border: 1px solid var(--bg-hover);
-    background: var(--bg-card); color: var(--text-secondary); border-radius: var(--radius-sm);
-    cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.2s;
+/* Map + Forecast row layout */
+.map-forecast-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);
 }
-.map-tab.active { background: var(--accent-teal); color: var(--bg-primary); border-color: var(--accent-teal); }
-.map-tab:hover:not(.active) { background: var(--bg-hover); }
+.map-side { display: flex; flex-direction: column; gap: var(--space-sm); min-width: 0; }
+.forecast-side { display: flex; flex-direction: column; gap: var(--space-sm); min-width: 0; }
+.map-section-title {
+    font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;
+    letter-spacing: 0.5px; margin: 0;
+}
 
 /* Map container */
 .map-container { position: relative; }
-.map-container.hidden { display: none; }
 .singapore-map, .train-map { width: 100%; height: 100%; border-radius: var(--radius-md); overflow: hidden; }
 
 /* District styling */
@@ -145,13 +145,10 @@ body {
 /* Train line paths */
 .train-line-path { transition: all 0.3s; }
 
-/* Day counter */
-.day-counter {
-    display: flex; justify-content: center; align-items: center; gap: var(--space-md);
-    padding: var(--space-sm); background: var(--bg-card); border-radius: var(--radius-md);
-}
-.day-label, .hour-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
-.day-value, .hour-value { font-size: 1.25rem; font-weight: 700; color: var(--accent-teal); min-width: 40px; text-align: center; }
+/* Time-day and separator in panel header */
+.time-day { font-size: 0.9rem; font-weight: 700; color: var(--accent-teal); }
+.time-day #day-count { color: var(--accent-teal); }
+.time-sep { color: var(--text-muted); font-size: 0.8rem; opacity: 0.5; }
 
 /* Controls */
 .controls { display: flex; gap: var(--space-sm); align-items: center; }
@@ -258,13 +255,16 @@ body {
 .agent-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
 @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
 
-/* Active Events Panel */
+/* Active Events Panel — sticky at bottom of left column */
 .active-events-panel {
-    flex: 1; background: var(--bg-card); padding: var(--space-md);
-    border-radius: var(--radius-md); overflow-y: auto; max-height: 500px;
+    background: var(--bg-card); padding: var(--space-md);
+    border-radius: var(--radius-md);
 }
-.active-events-panel h2 { font-size: 0.9rem; margin-bottom: var(--space-md); }
-.event-section { margin-bottom: var(--space-md); }
+.active-events-panel h2 { font-size: 0.9rem; margin-bottom: var(--space-sm); }
+.active-events-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: var(--space-sm);
+}
+.event-section { margin-bottom: 0; }
 .event-section-title {
     font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;
     color: var(--text-muted); margin-bottom: var(--space-xs);
@@ -398,11 +398,11 @@ body {
 
 /* Live Interventions Panel */
 .interventions-panel {
+    flex: 1;
     background: var(--bg-card);
     padding: var(--space-md);
     border-radius: var(--radius-md);
     overflow-y: auto;
-    max-height: 400px;
 }
 .interventions-panel h2 { font-size: 0.9rem; margin-bottom: var(--space-md); }
 
@@ -514,13 +514,6 @@ body {
 .cost-note { font-size: 0.7rem; color: var(--text-muted); font-style: italic; }
 
 /* Demand Forecast Panel (v2) */
-.forecast-display {
-    background: var(--bg-card); padding: var(--space-md); border-radius: var(--radius-md);
-}
-.forecast-display h3 {
-    font-size: 0.8rem; color: var(--text-secondary); margin-bottom: var(--space-sm);
-    text-transform: uppercase; letter-spacing: 0.5px;
-}
 .forecast-content { display: flex; flex-direction: column; gap: var(--space-sm); }
 .forecast-row {
     display: grid; grid-template-columns: 70px 45px 1fr 40px; align-items: center; gap: var(--space-sm);
@@ -590,11 +583,16 @@ body {
 /* Responsive */
 @media (max-width: 1400px) {
     .dashboard { grid-template-columns: 1fr 1fr; }
+    .map-panel { grid-column: span 2; }
     .agent-panel { grid-column: span 2; flex-direction: row; }
-    .agent-status, .active-events-panel { flex: 1; }
+    .agent-status { flex: 1; }
+    .active-events-grid { grid-template-columns: 1fr 1fr 1fr 1fr; }
 }
 @media (max-width: 900px) {
     .dashboard { grid-template-columns: 1fr; }
+    .map-panel { grid-column: span 1; }
+    .map-forecast-row { grid-template-columns: 1fr; }
+    .active-events-grid { grid-template-columns: 1fr 1fr; }
     .agent-panel { grid-column: span 1; flex-direction: column; }
     .header { flex-direction: column; gap: var(--space-md); text-align: center; }
     .header-stats { width: 100%; justify-content: center; }

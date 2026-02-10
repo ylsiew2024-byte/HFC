@@ -127,7 +127,8 @@ async function resetSim() {
         scoreChart.update();
         document.getElementById('hour-select').value = 0;
         document.getElementById('interventions-content').innerHTML = '<div class="no-events">Run a simulation step to see agent interventions</div>';
-        document.getElementById('forecast-content').innerHTML = '<div class="no-events">Run simulation to see forecasts</div>';
+        document.getElementById('bus-forecast-content').innerHTML = '<div class="no-events">Run simulation to see forecasts</div>';
+        document.getElementById('train-forecast-content').innerHTML = '<div class="no-events">Run simulation to see forecasts</div>';
         updateUI(data);
     } catch (e) {
         console.error('Reset error:', e);
@@ -137,13 +138,7 @@ async function resetSim() {
     }
 }
 
-// ========== Map Switching ==========
-function switchMap(which) {
-    document.getElementById('bus-map-container').classList.toggle('hidden', which !== 'bus');
-    document.getElementById('train-map-container').classList.toggle('hidden', which !== 'train');
-    document.getElementById('tab-bus').classList.toggle('active', which === 'bus');
-    document.getElementById('tab-train').classList.toggle('active', which === 'train');
-}
+// ========== (Map toggle removed - both maps always visible) ==========
 
 // ========== Agent Animation ==========
 async function animateAgents() {
@@ -216,7 +211,6 @@ function updateUI(data) {
 
     document.getElementById('clock-time').textContent = hourStr;
     document.getElementById('day-count').textContent = day;
-    document.getElementById('hour-count').textContent = hourStr;
 
     let period = 'Night', icon = '\uD83C\uDF19';
     if (hour >= 5 && hour < 7) { period = 'Dawn'; icon = '\uD83C\uDF05'; }
@@ -273,9 +267,10 @@ function updateUI(data) {
         costHour.className = 'cost-value' + (data.cost.cost_this_hour > 500 ? ' cost-high' : '');
     }
 
-    // Forecast (v2)
+    // Forecast (v2) — split into bus (district) and train panels
     if (data.forecast) {
-        updateForecastPanel(data.forecast, noService);
+        updateBusForecastPanel(data.forecast, noService);
+        updateTrainForecastPanel(data.forecast, noService);
     }
 
     // Environment
@@ -289,10 +284,10 @@ function updateUI(data) {
         document.getElementById('total-emissions').textContent = `${data.environment.carbon_emissions.toFixed(0)} kg`;
     }
 
-    // Metrics
-    updateMetric('metric-station', data.metrics.avg_station, 0.5, 0.7);
-    updateMetric('metric-bus', data.metrics.avg_bus_load, 0.7, 0.85);
-    updateMetric('metric-mrt', data.metrics.avg_mrt_load, 0.65, 0.8);
+    // Metrics — zero out transit metrics during no-service hours
+    updateMetric('metric-station', noService ? 0 : data.metrics.avg_station, 0.5, 0.7);
+    updateMetric('metric-bus', noService ? 0 : data.metrics.avg_bus_load, 0.7, 0.85);
+    updateMetric('metric-mrt', noService ? 0 : data.metrics.avg_mrt_load, 0.65, 0.8);
     updateMetric('metric-traffic', data.metrics.avg_traffic, 0.5, 0.7);
     const airEl = document.getElementById('metric-air');
     airEl.textContent = data.metrics.avg_air.toFixed(1);
@@ -316,22 +311,19 @@ function updateUI(data) {
     updateChart(data.history_tail);
 }
 
-// ========== Forecast Panel (v2) ==========
-function updateForecastPanel(forecast, noService) {
-    const container = document.getElementById('forecast-content');
+// ========== Bus (District) Forecast Panel ==========
+function updateBusForecastPanel(forecast, noService) {
+    const container = document.getElementById('bus-forecast-content');
 
-    // During no-service hours, show glass banner
     if (noService) {
         container.innerHTML = `<div class="forecast-no-service">
             <span class="forecast-no-service-icon">\uD83D\uDEAB</span>
-            <span class="forecast-no-service-text">No Bus/Train Service (01:00 \u2013 05:00)</span>
+            <span class="forecast-no-service-text">No Service (01:00 \u2013 05:00)</span>
         </div>`;
         return;
     }
 
     let html = '';
-
-    // District forecasts
     for (const [name, fc] of Object.entries(forecast.districts || {})) {
         const vals = fc.forecast || [];
         const current = fc.current_load || 0;
@@ -355,13 +347,65 @@ function updateForecastPanel(forecast, noService) {
         </div>`;
     }
 
-    // Forecast alerts
-    const alerts = forecast.alerts || [];
-    if (alerts.length > 0) {
+    // Bus/district forecast alerts only
+    const TRAIN_KEYWORDS = /North South Line|East West Line|North East Line|Circle Line|adding trains/i;
+    const allAlerts = forecast.alerts || [];
+    const busAlerts = allAlerts.filter(a => !TRAIN_KEYWORDS.test(a));
+    if (busAlerts.length > 0) {
         html += '<div class="forecast-alerts">';
-        alerts.forEach(a => {
-            html += `<div class="forecast-alert">${a}</div>`;
+        busAlerts.forEach(a => { html += `<div class="forecast-alert">${a}</div>`; });
+        html += '</div>';
+    }
+
+    container.innerHTML = html || '<div class="no-events">No forecast data</div>';
+}
+
+// ========== Train Line Forecast Panel ==========
+function updateTrainForecastPanel(forecast, noService) {
+    const container = document.getElementById('train-forecast-content');
+
+    if (noService) {
+        container.innerHTML = `<div class="forecast-no-service">
+            <span class="forecast-no-service-icon">\uD83D\uDEAB</span>
+            <span class="forecast-no-service-text">No Service (01:00 \u2013 05:00)</span>
+        </div>`;
+        return;
+    }
+
+    const TRAIN_COLORS = { NSL: '#e53e3e', EWL: '#48bb78', NEL: '#9f7aea', CCL: '#ed8936' };
+    let html = '';
+
+    for (const [id, fc] of Object.entries(forecast.train_lines || {})) {
+        const vals = fc.forecast || [];
+        const current = fc.current_load || 0;
+        const peak = Math.max(...vals);
+        const peakClass = peak > 0.85 ? 'critical' : peak > 0.7 ? 'busy' : peak > 0.5 ? 'moderate' : 'good';
+        const color = TRAIN_COLORS[id] || '#4fd1c5';
+
+        html += `<div class="forecast-row">
+            <span class="forecast-name" style="color:${color}">${id}</span>
+            <span class="forecast-current">${(current*100).toFixed(0)}%</span>
+            <div class="forecast-bars">`;
+        vals.forEach((v, i) => {
+            const pct = Math.min(100, v * 100);
+            const cls = v > 0.85 ? 'critical' : v > 0.7 ? 'busy' : v > 0.5 ? 'moderate' : 'good';
+            html += `<div class="forecast-bar-wrap" title="+${i+1}h: ${(v*100).toFixed(0)}%">
+                <div class="forecast-bar ${cls}" style="height:${pct}%"></div>
+                <span class="forecast-label">+${i+1}h</span>
+            </div>`;
         });
+        html += `</div>
+            <span class="forecast-peak ${peakClass}">${(peak*100).toFixed(0)}%</span>
+        </div>`;
+    }
+
+    // Train-related forecast alerts only
+    const TRAIN_KEYWORDS = /North South Line|East West Line|North East Line|Circle Line|adding trains/i;
+    const allAlerts = forecast.alerts || [];
+    const trainAlerts = allAlerts.filter(a => TRAIN_KEYWORDS.test(a));
+    if (trainAlerts.length > 0) {
+        html += '<div class="forecast-alerts">';
+        trainAlerts.forEach(a => { html += `<div class="forecast-alert">${a}</div>`; });
         html += '</div>';
     }
 
